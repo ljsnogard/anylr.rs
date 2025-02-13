@@ -1,0 +1,12 @@
+[package]
+name = "anylr"
+version = "0.1.0"
+edition = "2021"
+
+authors = ["lino <lino_snsalias@outlook.com>"]
+description = "Provide `AnyOf<L, R>`, `SomeOf<L, R>`, `Either<L, R>`, `Both<L, R>` and traits."
+homepage = "https://github.com/ljsnogard/anylr.rs"
+keywords = []
+categories = ["no-std"]
+license = "MIT/Apache-2.0"
+readme = "README.md"
