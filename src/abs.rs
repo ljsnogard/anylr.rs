@@ -1,3 +1,4 @@
+/// A trait for types that you can reverse left to right, or the opposite.
 pub trait TrReverseLeftRight {
     type LeftType;
     type RightType;
@@ -5,6 +6,7 @@ pub trait TrReverseLeftRight {
     fn reverse(self) -> impl TrReverseLeftRight<LeftType = Self::RightType, RightType = Self::LeftType>;
 }
 
+/// Trait for types that may contain zero or more variants among left type and right type.
 pub trait TrAnyLeftRight {
     type LeftType;
     type RightType;
