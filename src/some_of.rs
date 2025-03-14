@@ -1,6 +1,7 @@
 use crate::{
     abs::{TrAnyLeftRight, TrReverseLeftRight},
-    any_of::AnyOf, both::Both, either::Either,
+    both::Both,
+    either::Either, AnyOf,
 };
 
 pub enum SomeOf<L, R> {
@@ -10,25 +11,25 @@ pub enum SomeOf<L, R> {
 }
 
 impl<L, R> SomeOf<L, R> {
-    pub fn map_left<F, T>(self, f: F) -> AnyOf<T, R>
+    pub fn map_left<F, T>(self, f: F) -> SomeOf<T, R>
     where
         F: FnOnce(L) -> T,
     {
         match self {
-            SomeOf::Left(x) => AnyOf::Left(f(x)),
-            SomeOf::Both(x) => AnyOf::Both(x.map_left(f)),
-            _ => AnyOf::Neither,
+            SomeOf::Left(x) => SomeOf::Left(f(x)),
+            SomeOf::Right(x) => SomeOf::Right(x),
+            SomeOf::Both(x) => SomeOf::Both(x.map_left(f)),
         }
     }
 
-    pub fn map_right<F, T>(self, f: F) -> AnyOf<L, T>
+    pub fn map_right<F, T>(self, f: F) -> SomeOf<L, T>
     where
         F: FnOnce(R) -> T,
     {
         match self {
-            SomeOf::Right(x) => AnyOf::Right(f(x)),
-            SomeOf::Both(x) => AnyOf::Both(x.map_right(f)),
-            _ => AnyOf::Neither,
+            SomeOf::Left(x) => SomeOf::Left(x),
+            SomeOf::Right(x) => SomeOf::Right(f(x)),
+            SomeOf::Both(x) => SomeOf::Both(x.map_right(f)),
         }
     }
 
@@ -72,6 +73,7 @@ impl<L, R> SomeOf<L, R> {
         }
     }
 
+    /// The variant is `SomeOf::Left` or `SomeOf::Both`
     pub fn is_left(&self) -> bool {
         match self {
             SomeOf::Left(_) => true,
@@ -80,12 +82,18 @@ impl<L, R> SomeOf<L, R> {
         }
     }
 
+    /// The variant is `SomeOf::Right` or `SomeOf::Both`
     pub fn is_right(&self) -> bool {
         match self {
             SomeOf::Right(_) => true,
             SomeOf::Both(_) => true,
             _ => false,
         }
+    }
+
+    /// The variant is just `SomeOf::Both`
+    pub fn is_both(&self) -> bool {
+        matches!(self, SomeOf::Both(_))
     }
 }
 
@@ -101,6 +109,19 @@ impl<L, R> From<Either<L, R>> for SomeOf<L, R> {
 impl<L, R> From<Both<L, R>> for SomeOf<L, R> {
     fn from(value: Both<L, R>) -> Self {
         SomeOf::Both(value)
+    }
+}
+
+impl<L, R> TryFrom<AnyOf<L, R>> for SomeOf<L, R> {
+    type Error = AnyOf<L, R>;
+
+    fn try_from(value: AnyOf<L, R>) -> Result<Self, AnyOf<L, R>> {
+        match value {
+            AnyOf::Both(b) => Result::Ok(SomeOf::Both(b)),
+            AnyOf::Left(l) => Result::Ok(SomeOf::Left(l)),
+            AnyOf::Right(r) => Result::Ok(SomeOf::Right(r)),
+            AnyOf::Neither => Result::Err(value),
+        }
     }
 }
 

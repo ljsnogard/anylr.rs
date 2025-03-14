@@ -86,6 +86,12 @@ impl<L, R> From<Either<L, R>> for AnyOf<L, R> {
     }
 }
 
+impl<L, R> From<Both<L, R>> for AnyOf<L, R> {
+    fn from(value: Both<L, R>) -> Self {
+        AnyOf::Both(value)
+    }
+}
+
 impl<L, R> From<SomeOf<L, R>> for AnyOf<L, R> {
     fn from(value: SomeOf<L, R>) -> Self {
         match value {
