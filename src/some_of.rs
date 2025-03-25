@@ -112,6 +112,15 @@ impl<L, R> From<Both<L, R>> for SomeOf<L, R> {
     }
 }
 
+impl<T, E> From<Result<T, E>> for SomeOf<T, E> {
+    fn from(value: Result<T, E>) -> Self {
+        match value {
+            Result::Ok(t) => SomeOf::Left(t),
+            Result::Err(e) => SomeOf::Right(e),
+        }
+    }
+}
+
 impl<L, R> TryFrom<AnyOf<L, R>> for SomeOf<L, R> {
     type Error = AnyOf<L, R>;
 

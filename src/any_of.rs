@@ -112,6 +112,17 @@ impl<L, R> From<Option<SomeOf<L, R>>> for AnyOf<L, R> {
     }
 }
 
+impl<L, R> From<(Option<L>, Option<R>)> for AnyOf<L, R> {
+    fn from(value: (Option<L>, Option<R>)) -> Self {
+        match value {
+            (Option::Some(l), Option::Some(r)) => AnyOf::Both(Both::new(l, r)),
+            (Option::Some(l), Option::None) => AnyOf::Left(l),
+            (Option::None, Option::Some(r)) => AnyOf::Right(r),
+            (Option::None, Option::None) => AnyOf::Neither,
+        }
+    }
+}
+
 impl<L, R> TrReverseLeftRight for AnyOf<L, R> {
     type LeftType = L;
     type RightType = R;
