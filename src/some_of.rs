@@ -4,6 +4,7 @@ use crate::{
     either::Either, AnyOf,
 };
 
+#[derive(Clone, Debug)]
 pub enum SomeOf<L, R> {
     Left(L),
     Right(R),

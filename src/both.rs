@@ -1,5 +1,6 @@
 use crate::abs::{TrAnyLeftRight, TrReverseLeftRight};
 
+#[derive(Clone, Debug)]
 pub struct Both<L, R> {
     pub left: L,
     pub right: R,
@@ -40,6 +41,16 @@ impl<L, R> Both<L, R> {
 
     pub fn into_inner(self) -> (L, R) {
         (self.left, self.right)
+    }
+}
+
+impl<L, R> Default for Both<L, R>
+where
+    L: Default,
+    R: Default,
+{
+    fn default() -> Self {
+        Both { left: L::default(), right: R::default() }
     }
 }
 

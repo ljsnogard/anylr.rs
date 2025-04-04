@@ -3,6 +3,7 @@ use crate::{
     both::Both, either::Either, some_of::SomeOf,
 };
 
+#[derive(Clone, Debug)]
 pub enum AnyOf<L, R> {
     Neither,
     Left(L),
@@ -74,6 +75,12 @@ impl<L, R> AnyOf<L, R> {
             AnyOf::Both(_) => true,
             _ => false,
         }
+    }
+}
+
+impl<L, R> Default for AnyOf<L, R> {
+    fn default() -> Self {
+        AnyOf::Neither
     }
 }
 
