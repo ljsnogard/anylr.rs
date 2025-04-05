@@ -1,84 +1,248 @@
 use crate::{
     abs::{TrAnyLeftRight, TrReverseLeftRight},
-    both::Both,
-    either::Either, AnyOf,
+    Either, Any,
 };
 
-#[derive(Clone, Debug)]
-pub enum SomeOf<L, R> {
-    Left(L),
-    Right(R),
-    Both(Both<L, R>),
-}
+pub struct SomeOf<L, R>(SomeLR<L, R>);
 
 impl<L, R> SomeOf<L, R> {
+    pub const fn new_left(l: L) -> Self {
+        SomeOf(SomeLR::Left(l))
+    }
+
+    pub const fn new_right(r: R) -> Self {
+        SomeOf(SomeLR::Right(r))
+    }
+
+    pub const fn new_both(l: L, r: R) -> Self {
+        SomeOf(SomeLR::Both((l, r)))
+    }
+
+    pub fn split(self) -> (Option<L>, Option<R>) {
+        match self.0 {
+            SomeLR::Left(l) => (Option::Some(l), Option::None),
+            SomeLR::Right(r) => (Option::None, Option::Some(r)),
+            SomeLR::Both((l, r,)) => (Option::Some(l), Option::Some(r)),
+        }
+    }
+
     pub fn map_left<F, T>(self, f: F) -> SomeOf<T, R>
     where
         F: FnOnce(L) -> T,
     {
-        match self {
-            SomeOf::Left(x) => SomeOf::Left(f(x)),
-            SomeOf::Right(x) => SomeOf::Right(x),
-            SomeOf::Both(x) => SomeOf::Both(x.map_left(f)),
-        }
+        SomeOf(self.0.map_left(f))
     }
 
     pub fn map_right<F, T>(self, f: F) -> SomeOf<L, T>
     where
         F: FnOnce(R) -> T,
     {
-        match self {
-            SomeOf::Left(x) => SomeOf::Left(x),
-            SomeOf::Right(x) => SomeOf::Right(f(x)),
-            SomeOf::Both(x) => SomeOf::Both(x.map_right(f)),
+        SomeOf(self.0.map_right(f))
+    }
+
+    pub fn take_left(self) -> SomeOf<L, Self> {
+        match self.0 {
+            SomeLR::Left(l) => SomeOf::new_left(l),
+            SomeLR::Right(r) => SomeOf::new_right(SomeOf::new_right(r)),
+            SomeLR::Both((l, r,)) => SomeOf::new_both(l, SomeOf::new_right(r)),
+        }
+    }
+
+    pub fn take_right(self) -> SomeOf<R, Self> {
+        match self.0 {
+            SomeLR::Left(l) => SomeOf::new_right(SomeOf::new_left(l)),
+            SomeLR::Right(r) => SomeOf::new_left(r),
+            SomeLR::Both((l, r,)) => SomeOf::new_both(r, SomeOf::new_left(l)),
         }
     }
 
     pub fn as_ref(&self) -> SomeOf<&L, &R> {
-        match self {
-            SomeOf::Left(x) => SomeOf::Left(x),
-            SomeOf::Right(x) => SomeOf::Right(x),
-            SomeOf::Both(x) => SomeOf::Both(x.as_ref()),
+        match &self.0 {
+            SomeLR::Left(l) => SomeOf::new_left(l),
+            SomeLR::Right(r) => SomeOf::new_right(r),
+            SomeLR::Both((l, r)) => SomeOf::new_both(l, r)
         }
     }
 
     pub fn as_mut(&mut self) -> SomeOf<&mut L, &mut R> {
-        match self {
-            SomeOf::Left(x) => SomeOf::Left(x),
-            SomeOf::Right(x) => SomeOf::Right(x),
-            SomeOf::Both(x) => SomeOf::Both(x.as_mut()),
+        match &mut self.0 {
+            SomeLR::Left(l) => SomeOf::new_left(l),
+            SomeLR::Right(r) => SomeOf::new_right(r),
+            SomeLR::Both((l, r)) => SomeOf::new_both(l, r)
         }
     }
 
     pub fn reverse(self) -> SomeOf<R, L> {
+        SomeOf(self.0.reverse())
+    }
+
+    /// The variant is `SomeOf::Left` or `SomeOf::Both`
+    pub fn is_left(&self) -> bool {
+        self.0.is_left()
+    }
+
+    /// The variant is `SomeOf::Right` or `SomeOf::Both`
+    pub fn is_right(&self) -> bool {
+        self.0.is_right()
+    }
+
+    /// The variant is just `SomeOf::Both`
+    pub fn is_both(&self) -> bool {
+        self.0.is_both()
+    }
+}
+
+impl<L, R> From<Either<L, R>> for SomeOf<L, R> {
+    fn from(value: Either<L, R>) -> Self {
+        match value {
+            Either::Left(x) => SomeOf::new_left(x),
+            Either::Right(x) => SomeOf::new_right(x),
+        }
+    }
+}
+
+impl<L, R> From<(L, R,)> for SomeOf<L, R> {
+    fn from(value: (L, R,)) -> Self {
+        SomeOf::new_both(value.0, value.1)
+    }
+}
+
+impl<T, E> From<Result<T, E>> for SomeOf<T, E> {
+    fn from(value: Result<T, E>) -> Self {
+        match value {
+            Result::Ok(t) => SomeOf::new_left(t),
+            Result::Err(e) => SomeOf::new_right(e),
+        }
+    }
+}
+
+impl<L, R> TryFrom<Any<L, R>> for SomeOf<L, R> {
+    type Error = Any<L, R>;
+
+    fn try_from(value: Any<L, R>) -> Result<Self, Any<L, R>> {
+        match value.split() {
+            (Option::Some(l), Option::Some(r)) => Result::Ok(SomeOf::new_both(l, r)),
+            (Option::Some(l), Option::None) => Result::Ok(SomeOf::new_left(l)),
+            (Option::None, Option::Some(r)) => Result::Ok(SomeOf::new_right(r)),
+            _ => Result::Err(Any::new_neither()),
+        }
+    }
+}
+
+impl<L, R> TrReverseLeftRight for SomeOf<L, R> {
+    type Lt = L;
+    type Rt = R;
+
+    #[inline]
+    fn reverse(self) -> impl TrReverseLeftRight<Lt = Self::Rt, Rt = Self::Lt> {
+        SomeOf::reverse(self)
+    }
+}
+
+impl<L, R> TrAnyLeftRight for SomeOf<L, R> {
+    type Lt = L;
+    type Rt = R;
+
+    #[inline]
+    fn split(self) -> (Option<Self::Lt>, Option<Self::Rt>) {
+        SomeOf::split(self)
+    }
+
+    #[inline]
+    fn map_left<F, T>(self, f: F) -> impl TrAnyLeftRight<Lt = T, Rt = Self::Rt >
+    where
+        F: FnOnce(Self::Lt) -> T,
+    {
+        SomeOf::map_left(self, f)
+    }
+
+    #[inline]
+    fn map_right<F, T>(self, f: F) -> impl TrAnyLeftRight<Lt = Self::Lt, Rt = T>
+    where
+        F: FnOnce(Self::Rt) -> T,
+    {
+        SomeOf::map_right(self, f)
+    }
+
+    #[inline]
+    fn take_left(self) -> SomeOf<Self::Lt, Self>
+    where
+        Self: Sized
+    {
+        SomeOf::take_left(self)
+    }
+
+    #[inline]
+    fn take_right(self) -> SomeOf<Self::Rt, Self>
+    where
+        Self: Sized
+    {
+        SomeOf::take_right(self)
+    }
+
+    #[inline]
+    fn as_ref<'a>(&'a self) -> impl TrAnyLeftRight<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    where
+        Self::Lt: 'a,
+        Self::Rt: 'a,
+    {
+        SomeOf::as_ref(self)
+    }
+
+    #[inline]
+    fn as_mut<'a>(&'a mut self) -> impl TrAnyLeftRight<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    where
+        Self::Lt: 'a,
+        Self::Rt: 'a,
+    {
+        SomeOf::as_mut(self)
+    }
+}
+
+
+#[derive(Clone, Debug)]
+enum SomeLR<L, R> {
+    Left(L),
+    Right(R),
+    Both((L, R,)),
+}
+
+impl<L, R> SomeLR<L, R> {
+    pub fn map_left<F, T>(self, f: F) -> SomeLR<T, R>
+    where
+        F: FnOnce(L) -> T,
+    {
         match self {
-            SomeOf::Left(x) => SomeOf::Right(x),
-            SomeOf::Right(x) => SomeOf::Left(x),
-            SomeOf::Both(x) => SomeOf::Both(x.reverse()),
+            SomeLR::Left(l) => SomeLR::Left(f(l)),
+            SomeLR::Right(r) => SomeLR::Right(r),
+            SomeLR::Both((l, r,)) => SomeLR::Both((f(l), r,)),
         }
     }
 
-    pub fn left(self) -> Option<L> {
+    pub fn map_right<F, T>(self, f: F) -> SomeLR<L, T>
+    where
+        F: FnOnce(R) -> T,
+    {
         match self {
-            SomeOf::Left(x) => Option::Some(x),
-            SomeOf::Both(x) => Option::Some(x.left),
-            _ => Option::None,
+            SomeLR::Left(l) => SomeLR::Left(l),
+            SomeLR::Right(r) => SomeLR::Right(f(r)),
+            SomeLR::Both((l, r,)) => SomeLR::Both((l, f(r),)),
         }
     }
 
-    pub fn right(self) -> Option<R> {
+    pub fn reverse(self) -> SomeLR<R, L> {
         match self {
-            SomeOf::Right(x) => Option::Some(x),
-            SomeOf::Both(x) => Option::Some(x.right),
-            _ => Option::None,
+            SomeLR::Left(l) => SomeLR::Right(l),
+            SomeLR::Right(r) => SomeLR::Left(r),
+            SomeLR::Both((l, r,)) => SomeLR::Both((r, l,)),
         }
     }
 
     /// The variant is `SomeOf::Left` or `SomeOf::Both`
     pub fn is_left(&self) -> bool {
         match self {
-            SomeOf::Left(_) => true,
-            SomeOf::Both(_) => true,
+            SomeLR::Left(_) => true,
+            SomeLR::Both(_) => true,
             _ => false,
         }
     }
@@ -86,120 +250,14 @@ impl<L, R> SomeOf<L, R> {
     /// The variant is `SomeOf::Right` or `SomeOf::Both`
     pub fn is_right(&self) -> bool {
         match self {
-            SomeOf::Right(_) => true,
-            SomeOf::Both(_) => true,
+            SomeLR::Right(_) => true,
+            SomeLR::Both(_) => true,
             _ => false,
         }
     }
 
     /// The variant is just `SomeOf::Both`
     pub fn is_both(&self) -> bool {
-        matches!(self, SomeOf::Both(_))
-    }
-}
-
-impl<L, R> From<Either<L, R>> for SomeOf<L, R> {
-    fn from(value: Either<L, R>) -> Self {
-        match value {
-            Either::Left(x) => SomeOf::Left(x),
-            Either::Right(x) => SomeOf::Right(x),
-        }
-    }
-}
-
-impl<L, R> From<Both<L, R>> for SomeOf<L, R> {
-    fn from(value: Both<L, R>) -> Self {
-        SomeOf::Both(value)
-    }
-}
-
-impl<T, E> From<Result<T, E>> for SomeOf<T, E> {
-    fn from(value: Result<T, E>) -> Self {
-        match value {
-            Result::Ok(t) => SomeOf::Left(t),
-            Result::Err(e) => SomeOf::Right(e),
-        }
-    }
-}
-
-impl<L, R> TryFrom<AnyOf<L, R>> for SomeOf<L, R> {
-    type Error = AnyOf<L, R>;
-
-    fn try_from(value: AnyOf<L, R>) -> Result<Self, AnyOf<L, R>> {
-        match value {
-            AnyOf::Both(b) => Result::Ok(SomeOf::Both(b)),
-            AnyOf::Left(l) => Result::Ok(SomeOf::Left(l)),
-            AnyOf::Right(r) => Result::Ok(SomeOf::Right(r)),
-            AnyOf::Neither => Result::Err(value),
-        }
-    }
-}
-
-impl<L, R> TrReverseLeftRight for SomeOf<L, R> {
-    type LeftType = L;
-    type RightType = R;
-
-    #[inline]
-    fn reverse(self) -> impl TrReverseLeftRight<LeftType = Self::RightType, RightType = Self::LeftType> {
-        SomeOf::reverse(self)
-    }
-}
-
-impl<L, R> TrAnyLeftRight for SomeOf<L, R> {
-    type LeftType = L;
-    type RightType = R;
-
-    #[inline]
-    fn map_left<F, T>(self, f: F) -> impl TrAnyLeftRight<LeftType = T, RightType = Self::RightType >
-    where
-        F: FnOnce(Self::LeftType) -> T,
-    {
-        SomeOf::map_left(self, f)
-    }
-
-    #[inline]
-    fn map_right<F, T>(self, f: F) -> impl TrAnyLeftRight<LeftType = Self::LeftType, RightType = T>
-    where
-        F: FnOnce(Self::RightType) -> T,
-    {
-        SomeOf::map_right(self, f)
-    }
-
-    #[inline]
-    fn as_ref<'a>(&'a self) -> impl TrAnyLeftRight<LeftType = &'a Self::LeftType, RightType = &'a Self::RightType>
-    where
-        Self::LeftType: 'a,
-        Self::RightType: 'a,
-    {
-        SomeOf::as_ref(self)
-    }
-
-    #[inline]
-    fn as_mut<'a>(&'a mut self) -> impl TrAnyLeftRight<LeftType = &'a mut Self::LeftType, RightType = &'a mut Self::RightType>
-    where
-        Self::LeftType: 'a,
-        Self::RightType: 'a,
-    {
-        SomeOf::as_mut(self)
-    }
-
-    #[inline]
-    fn is_left(&self) -> bool {
-        SomeOf::is_left(self)
-    }
-
-    #[inline]
-    fn is_right(&self) -> bool {
-        SomeOf::is_right(self)
-    }
-
-    #[inline]
-    fn left(self) -> Option<Self::LeftType> {
-        SomeOf::left(self)
-    }
-
-    #[inline]
-    fn right(self) -> Option<Self::RightType> {
-        SomeOf::right(self)
+        matches!(self, SomeLR::Both(_))
     }
 }

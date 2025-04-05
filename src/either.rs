@@ -1,4 +1,7 @@
-use crate::abs::{TrAnyLeftRight, TrReverseLeftRight};
+use crate::{
+    abs::{TrAnyLeftRight, TrReverseLeftRight},
+    SomeOf,
+};
 
 #[derive(Clone, Debug)]
 pub enum Either<L, R> {
@@ -7,14 +10,29 @@ pub enum Either<L, R> {
 }
 
 impl<L, R> Either<L, R> {
+    pub const fn new_left(l: L) -> Self {
+        Either::Left(l)
+    }
+
+    pub const fn new_right(r: R) -> Self {
+        Either::Right(r)
+    }
+
+    pub fn split(self) -> (Option<L>, Option<R>) {
+        match self {
+            Either::Left(l) => (Option::Some(l), Option::None),
+            Either::Right(r) => (Option::None, Option::Some(r)),
+        }
+    }
+
     /// Maps Either<L, R> to Either<T, R>
     pub fn map_left<F, T>(self, f: F) -> Either<T, R>
     where
         F: FnOnce(L) -> T,
     {
         match self {
-            Either::Left(x) => Either::<T, R>::Left(f(x)),
-            Either::Right(x) => Either::<T, R>::Right(x),
+            Either::Left(l) => Either::new_left(f(l)),
+            Either::Right(r) => Either::new_right(r),
         }
     }
 
@@ -24,36 +42,50 @@ impl<L, R> Either<L, R> {
         F: FnOnce(R) -> T,
     {
         match self {
-            Either::Left(x) => Either::<L, T>::Left(x),
-            Either::Right(x) => Either::<L, T>::Right(f(x)),
+            Either::Left(l) => Either::<L, T>::Left(l),
+            Either::Right(r) => Either::<L, T>::Right(f(r)),
+        }
+    }
+
+    pub fn take_left(self) -> Either<L, Self> {
+        match self {
+            Either::Left(l) => Either::new_left(l),
+            Either::Right(r) => Either::new_right(Either::new_right(r)),
+        }
+    }
+
+    pub fn take_right(self) -> Either<R, Self> {
+        match self {
+            Either::Left(l) => Either::Right(Either::new_left(l)),
+            Either::Right(r) => Either::new_left(r),
         }
     }
 
     pub const fn as_ref(&self) -> Either<&L, &R> {
         match self {
-            Either::Left(x) => Either::Left(x),
-            Either::Right(x) => Either::Right(x)
+            Either::Left(l) => Either::Left(l),
+            Either::Right(r) => Either::Right(r)
         }
     }
 
     pub const fn as_mut(&mut self) -> Either<&mut L, &mut R> {
         match self {
-            Either::Left(x) => Either::Left(x),
-            Either::Right(x) => Either::Right(x)
+            Either::Left(l) => Either::Left(l),
+            Either::Right(r) => Either::Right(r)
         }
     }
 
     pub fn left(self) -> Option<L> {
-        if let Either::Left(x) = self {
-            Option::Some(x)
+        if let Either::Left(l) = self {
+            Option::Some(l)
         } else {
             Option::None
         }
     }
 
     pub fn right(self) -> Option<R> {
-        if let Either::Right(x) = self {
-            Option::Some(x)
+        if let Either::Right(r) = self {
+            Option::Some(r)
         } else {
             Option::None
         }
@@ -131,70 +163,81 @@ impl<T, E> From<Result<T, E>> for Either<T, E> {
 }
 
 impl<L, R> TrReverseLeftRight for Either<L, R> {
-    type LeftType = L;
-    type RightType = R;
+    type Lt = L;
+    type Rt = R;
 
     #[inline]
-    fn reverse(self) -> impl TrReverseLeftRight<LeftType = Self::RightType, RightType = Self::LeftType> {
+    fn reverse(self) -> impl TrReverseLeftRight<Lt = Self::Rt, Rt = Self::Lt> {
         Either::reverse(self)
     }
 }
 
 impl<L, R> TrAnyLeftRight for Either<L, R> {
-    type LeftType = L;
-    type RightType = R;
+    type Lt = L;
+    type Rt = R;
 
     #[inline]
-    fn map_left<F, T>(self, f: F) -> impl TrAnyLeftRight<LeftType = T, RightType = Self::RightType >
+    fn split(self) -> (Option<Self::Lt>, Option<Self::Rt>) {
+        Either::split(self)
+    }
+
+    #[inline]
+    fn map_left<F, T>(self, f: F) -> impl TrAnyLeftRight<Lt = T, Rt = Self::Rt >
     where
-        F: FnOnce(Self::LeftType) -> T,
+        F: FnOnce(Self::Lt) -> T,
     {
         Either::map_left(self, f)
     }
 
     #[inline]
-    fn map_right<F, T>(self, f: F) -> impl TrAnyLeftRight<LeftType = Self::LeftType, RightType = T>
+    fn map_right<F, T>(self, f: F) -> impl TrAnyLeftRight<Lt = Self::Lt, Rt = T>
     where
-        F: FnOnce(Self::RightType) -> T,
+        F: FnOnce(Self::Rt) -> T,
     {
         Either::map_right(self, f)
     }
 
     #[inline]
-    fn as_ref<'a>(&'a self) -> impl TrAnyLeftRight<LeftType = &'a Self::LeftType, RightType = &'a Self::RightType>
+    fn take_left(self) -> SomeOf<Self::Lt, Self>
     where
-        Self::LeftType: 'a,
-        Self::RightType: 'a,
+        Self: Sized
+    {
+        Either::take_left(self).into()
+    }
+
+    #[inline]
+    fn take_right(self) -> SomeOf<Self::Rt, Self>
+    where
+        Self: Sized
+    {
+        Either::take_right(self).into()
+    }
+
+    #[inline]
+    fn as_ref<'a>(&'a self) -> impl TrAnyLeftRight<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    where
+        Self::Lt: 'a,
+        Self::Rt: 'a,
     {
         Either::as_ref(self)
     }
 
     #[inline]
-    fn as_mut<'a>(&'a mut self) -> impl TrAnyLeftRight<LeftType = &'a mut Self::LeftType, RightType = &'a mut Self::RightType>
+    fn as_mut<'a>(&'a mut self) -> impl TrAnyLeftRight<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
     where
-        Self::LeftType: 'a,
-        Self::RightType: 'a,
+        Self::Lt: 'a,
+        Self::Rt: 'a,
     {
         Either::as_mut(self)
     }
 
     #[inline]
-    fn is_left(&self) -> bool {
+    fn contains_left(&self) -> bool {
         Either::is_left(self)
     }
 
     #[inline]
-    fn is_right(&self) -> bool {
+    fn contains_right(&self) -> bool {
         Either::is_right(self)
-    }
-
-    #[inline]
-    fn left(self) -> Option<Self::LeftType> {
-        Either::left(self)
-    }
-
-    #[inline]
-    fn right(self) -> Option<Self::RightType> {
-        Either::right(self)
     }
 }

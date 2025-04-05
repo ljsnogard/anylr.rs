@@ -1,136 +1,74 @@
-use crate::abs::{TrAnyLeftRight, TrReverseLeftRight};
+use crate::{
+    abs::{TrAnyLeftRight, TrReverseLeftRight},
+    SomeOf,
+};
 
-#[derive(Clone, Debug)]
-pub struct Both<L, R> {
-    pub left: L,
-    pub right: R,
-}
+impl<L, R> TrReverseLeftRight for (L, R) {
+    type Lt = L;
+    type Rt = R;
 
-impl<L, R> Both<L, R> {
-    pub const fn new(left: L, right: R) -> Self {
-        Both { left, right }
-    }
-
-    /// Maps Both<L, R> to Both<T, R>
-    pub fn map_left<F, T>(self, f: F) -> Both<T, R>
-    where
-        F: FnOnce(L) -> T,
-    {
-        Both { left: f(self.left), right: self.right }
-    }
-
-    /// Maps Both<L, R> to Both<L, T>
-    pub fn map_right<F, T>(self, f: F) -> Both<L, T>
-    where
-        F: FnOnce(R) -> T,
-    {
-        Both { left: self.left, right: f(self.right) }
-    }
-
-    pub const fn as_ref(&self) -> Both<&L, &R> {
-        Both { left: &self.left, right: &self.right }
-    }
-
-    pub const fn as_mut(&mut self) -> Both<&mut L, &mut R> {
-        Both { left: &mut self.left, right: &mut self.right }
-    }
-
-    pub fn reverse(self) -> Both<R, L> {
-        Both { left: self.right, right: self.left }
-    }
-
-    pub fn into_inner(self) -> (L, R) {
-        (self.left, self.right)
+    #[inline]
+    fn reverse(self) -> impl TrReverseLeftRight<Lt = Self::Rt, Rt = Self::Lt> {
+        (self.1, self.0)
     }
 }
 
-impl<L, R> Default for Both<L, R>
-where
-    L: Default,
-    R: Default,
-{
-    fn default() -> Self {
-        Both { left: L::default(), right: R::default() }
-    }
-}
-
-impl<L, R> From<(L, R)> for Both<L, R> {
-    fn from(value: (L, R)) -> Self {
-        Both::new(value.0, value.1)
-    }
-}
-
-impl<L, R> From<Both<L, R>> for (L, R) {
-    fn from(value: Both<L, R>) -> Self {
-        (value.left, value.right)
-    }
-}
-
-impl<L, R> TrReverseLeftRight for Both<L, R> {
-    type LeftType = L;
-    type RightType = R;
+impl<L, R> TrAnyLeftRight for (L, R) {
+    type Lt = L;
+    type Rt = R;
 
     #[inline]
-    fn reverse(self) -> impl TrReverseLeftRight<LeftType = Self::RightType, RightType = Self::LeftType> {
-        Both::reverse(self)
+    fn split(self) -> (Option<Self::Lt>, Option<Self::Rt>) {
+        (Option::Some(self.0), Option::Some(self.1))
     }
-}
-
-impl<L, R> TrAnyLeftRight for Both<L, R> {
-    type LeftType = L;
-    type RightType = R;
 
     #[inline]
-    fn map_left<F, T>(self, f: F) -> impl TrAnyLeftRight<LeftType = T, RightType = Self::RightType >
+    fn map_left<F, T>(self, f: F) -> impl TrAnyLeftRight<Lt = T, Rt = Self::Rt >
     where
-        F: FnOnce(Self::LeftType) -> T,
+        F: FnOnce(Self::Lt) -> T,
     {
-        Both::map_left(self, f)
+        let (l, r) = self;
+        (f(l), r)
     }
 
     #[inline]
-    fn map_right<F, T>(self, f: F) -> impl TrAnyLeftRight<LeftType = Self::LeftType, RightType = T>
+    fn map_right<F, T>(self, f: F) -> impl TrAnyLeftRight<Lt = Self::Lt, Rt = T>
     where
-        F: FnOnce(Self::RightType) -> T,
+        F: FnOnce(Self::Rt) -> T,
     {
-        Both::map_right(self, f)
+        let (l, r) = self;
+        (l, f(r))
     }
 
-    #[inline]
-    fn as_ref<'a>(&'a self) -> impl TrAnyLeftRight<LeftType = &'a Self::LeftType, RightType = &'a Self::RightType>
+    fn take_left(self) -> SomeOf<L, Self>
     where
-        Self::LeftType: 'a,
-        Self::RightType: 'a,
+        Self: Sized
     {
-        Both::as_ref(self)
+        SomeOf::new_left(self.0)
     }
 
-    #[inline]
-    fn as_mut<'a>(&'a mut self) -> impl TrAnyLeftRight<LeftType = &'a mut Self::LeftType, RightType = &'a mut Self::RightType>
+    fn take_right(self) -> SomeOf<R, Self>
     where
-        Self::LeftType: 'a,
-        Self::RightType: 'a,
+        Self: Sized
     {
-        Both::as_mut(self)
+        SomeOf::new_left(self.1)
     }
 
     #[inline]
-    fn is_left(&self) -> bool {
-        true
+    fn as_ref<'a>(&'a self) -> impl TrAnyLeftRight<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    where
+        Self::Lt: 'a,
+        Self::Rt: 'a,
+    {
+        (&self.0, &self.1)
     }
 
     #[inline]
-    fn is_right(&self) -> bool {
-        true
-    }
-
-    #[inline]
-    fn left(self) -> Option<Self::LeftType> {
-        Option::Some(self.left)
-    }
-
-    #[inline]
-    fn right(self) -> Option<Self::RightType> {
-        Option::Some(self.right)
+    fn as_mut<'a>(&'a mut self) -> impl TrAnyLeftRight<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    where
+        Self::Lt: 'a,
+        Self::Rt: 'a,
+    {
+        (&mut self.0, &mut self.1)
     }
 }
