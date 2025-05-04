@@ -19,11 +19,7 @@ impl<L, R> SomeOf<L, R> {
     }
 
     pub fn split(self) -> (Option<L>, Option<R>) {
-        match self.0 {
-            SomeLR::Left(l) => (Option::Some(l), Option::None),
-            SomeLR::Right(r) => (Option::None, Option::Some(r)),
-            SomeLR::Both((l, r,)) => (Option::Some(l), Option::Some(r)),
-        }
+        SomeLR::split(self.0)
     }
 
     pub fn map_left<F, T>(self, f: F) -> SomeOf<T, R>
@@ -89,6 +85,10 @@ impl<L, R> SomeOf<L, R> {
     /// The variant is just `SomeOf::Both`
     pub fn is_both(&self) -> bool {
         self.0.is_both()
+    }
+
+    pub fn into_inner(self) -> SomeLR<L, R> {
+        self.0
     }
 }
 
@@ -201,32 +201,18 @@ impl<L, R> TrAnyLeftRight for SomeOf<L, R> {
 
 
 #[derive(Clone, Debug)]
-enum SomeLR<L, R> {
+pub enum SomeLR<L, R> {
     Left(L),
     Right(R),
     Both((L, R,)),
 }
 
 impl<L, R> SomeLR<L, R> {
-    pub fn map_left<F, T>(self, f: F) -> SomeLR<T, R>
-    where
-        F: FnOnce(L) -> T,
-    {
+    pub fn split(self) -> (Option<L>, Option<R>) {
         match self {
-            SomeLR::Left(l) => SomeLR::Left(f(l)),
-            SomeLR::Right(r) => SomeLR::Right(r),
-            SomeLR::Both((l, r,)) => SomeLR::Both((f(l), r,)),
-        }
-    }
-
-    pub fn map_right<F, T>(self, f: F) -> SomeLR<L, T>
-    where
-        F: FnOnce(R) -> T,
-    {
-        match self {
-            SomeLR::Left(l) => SomeLR::Left(l),
-            SomeLR::Right(r) => SomeLR::Right(f(r)),
-            SomeLR::Both((l, r,)) => SomeLR::Both((l, f(r),)),
+            SomeLR::Left(l) => (Option::Some(l), Option::None),
+            SomeLR::Right(r) => (Option::None, Option::Some(r)),
+            SomeLR::Both((l, r,)) => (Option::Some(l), Option::Some(r)),
         }
     }
 
@@ -238,8 +224,30 @@ impl<L, R> SomeLR<L, R> {
         }
     }
 
+    pub(crate) fn map_left<F, T>(self, f: F) -> SomeLR<T, R>
+    where
+        F: FnOnce(L) -> T,
+    {
+        match self {
+            SomeLR::Left(l) => SomeLR::Left(f(l)),
+            SomeLR::Right(r) => SomeLR::Right(r),
+            SomeLR::Both((l, r,)) => SomeLR::Both((f(l), r,)),
+        }
+    }
+
+    pub(crate) fn map_right<F, T>(self, f: F) -> SomeLR<L, T>
+    where
+        F: FnOnce(R) -> T,
+    {
+        match self {
+            SomeLR::Left(l) => SomeLR::Left(l),
+            SomeLR::Right(r) => SomeLR::Right(f(r)),
+            SomeLR::Both((l, r,)) => SomeLR::Both((l, f(r),)),
+        }
+    }
+
     /// The variant is `SomeOf::Left` or `SomeOf::Both`
-    pub fn is_left(&self) -> bool {
+    pub(crate) fn is_left(&self) -> bool {
         match self {
             SomeLR::Left(_) => true,
             SomeLR::Both(_) => true,
@@ -248,7 +256,7 @@ impl<L, R> SomeLR<L, R> {
     }
 
     /// The variant is `SomeOf::Right` or `SomeOf::Both`
-    pub fn is_right(&self) -> bool {
+    pub(crate) fn is_right(&self) -> bool {
         match self {
             SomeLR::Right(_) => true,
             SomeLR::Both(_) => true,
@@ -257,7 +265,7 @@ impl<L, R> SomeLR<L, R> {
     }
 
     /// The variant is just `SomeOf::Both`
-    pub fn is_both(&self) -> bool {
+    pub(crate) fn is_both(&self) -> bool {
         matches!(self, SomeLR::Both(_))
     }
 }

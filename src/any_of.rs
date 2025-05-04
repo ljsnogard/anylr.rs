@@ -171,6 +171,10 @@ impl<L, R> Any<L, R> {
     pub fn is_neither(&self) -> bool {
         matches!(self.0, AnyLR::Neither)
     }
+
+    pub fn into_inner(self) -> AnyLR<L, R> {
+        self.0
+    }
 }
 
 impl<L, R> Default for Any<L, R> {
@@ -281,7 +285,7 @@ impl<L, R> TrAnyLeftRight for Any<L, R> {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) enum AnyLR<L, R> {
+pub enum AnyLR<L, R> {
     Neither,
     Left(L),
     Right(R),
@@ -298,7 +302,16 @@ impl<L, R> AnyLR<L, R> {
         }
     }
 
-    pub fn map_left<F, U>(self, f: F) -> AnyLR<U, R>
+    pub fn reverse(self) -> AnyLR<R, L> {
+        match self {
+            AnyLR::Neither => AnyLR::Neither,
+            AnyLR::Left(x) => AnyLR::Right(x),
+            AnyLR::Right(x) => AnyLR::Left(x),
+            AnyLR::Both((l, r,)) => AnyLR::Both((r, l,)),
+        }
+    }
+
+    pub(crate) fn map_left<F, U>(self, f: F) -> AnyLR<U, R>
     where
         F: FnOnce(L) -> U,
     {
@@ -309,7 +322,7 @@ impl<L, R> AnyLR<L, R> {
         }
     }
 
-    pub fn map_right<F, U>(self, f: F) -> AnyLR<L, U>
+    pub(crate) fn map_right<F, U>(self, f: F) -> AnyLR<L, U>
     where
         F: FnOnce(R) -> U,
     {
@@ -317,15 +330,6 @@ impl<L, R> AnyLR<L, R> {
             AnyLR::Right(r) => AnyLR::Right(f(r)),
             AnyLR::Both((l, r,)) => AnyLR::Both((l, f(r),)),
             _ => AnyLR::Neither,
-        }
-    }
-
-    pub fn reverse(self) -> AnyLR<R, L> {
-        match self {
-            AnyLR::Neither => AnyLR::Neither,
-            AnyLR::Left(x) => AnyLR::Right(x),
-            AnyLR::Right(x) => AnyLR::Left(x),
-            AnyLR::Both((l, r,)) => AnyLR::Both((r, l,)),
         }
     }
 }
