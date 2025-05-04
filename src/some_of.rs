@@ -3,6 +3,7 @@ use crate::{
     Either, Any,
 };
 
+#[derive(Clone, Debug)]
 pub struct SomeOf<L, R>(SomeLR<L, R>);
 
 impl<L, R> SomeOf<L, R> {
