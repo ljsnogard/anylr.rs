@@ -241,3 +241,6 @@ impl<L, R> TrAnyLeftRight for Either<L, R> {
         Either::is_right(self)
     }
 }
+
+impl<L: Copy, R: Copy> Copy for Either<L, R>
+{ }

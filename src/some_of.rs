@@ -203,6 +203,9 @@ impl<L, R> TrAnyLeftRight for SomeOf<L, R> {
     }
 }
 
+impl<L: Copy, R: Copy> Copy for SomeOf<L, R>
+{}
+
 /// At least one value of type `L` or `R`, or both.
 #[derive(Clone, Debug)]
 pub enum SomeLR<L, R> {
@@ -273,3 +276,6 @@ impl<L, R> SomeLR<L, R> {
         matches!(self, SomeLR::Both(_))
     }
 }
+
+impl<L: Copy, R: Copy> Copy for SomeLR<L, R>
+{ }

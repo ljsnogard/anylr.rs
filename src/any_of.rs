@@ -284,6 +284,9 @@ impl<L, R> TrAnyLeftRight for Any<L, R> {
     }
 }
 
+impl<L: Copy, R: Copy> Copy for Any<L, R>
+{}
+
 #[derive(Clone, Debug)]
 pub enum AnyLR<L, R> {
     Neither,
@@ -333,3 +336,6 @@ impl<L, R> AnyLR<L, R> {
         }
     }
 }
+
+impl<L: Copy, R: Copy> Copy for AnyLR<L, R>
+{}
