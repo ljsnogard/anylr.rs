@@ -3,7 +3,7 @@ use crate::{
     Either, SomeOf,
 };
 
-/// A combination of zero or one L and zero of R
+/// A combination of zero or one, `L` and `R`
 #[derive(Clone, Debug)]
 pub struct Any<L, R>(AnyLR<L, R>);
 

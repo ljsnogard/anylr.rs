@@ -3,6 +3,9 @@ use crate::{
     Either, Any,
 };
 
+/// An wrapper around `SomeLR<L, R>`. This is to avoid misunderstanding for
+/// the semantic APIs like `TrAnyLeftRight::map_left`. In detail, the variant
+/// of `SomeLR::Both` should returns true for both `is_left` and `is_right`.
 #[derive(Clone, Debug)]
 pub struct SomeOf<L, R>(SomeLR<L, R>);
 
@@ -200,7 +203,7 @@ impl<L, R> TrAnyLeftRight for SomeOf<L, R> {
     }
 }
 
-
+/// At least one value of type `L` or `R`, or both.
 #[derive(Clone, Debug)]
 pub enum SomeLR<L, R> {
     Left(L),
