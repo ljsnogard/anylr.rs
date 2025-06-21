@@ -1,29 +1,31 @@
 use crate::{
-    abs::{TrAnyLeftRight, TrReverseLeftRight},
-    SomeOf,
+    abs::{TrAnyOf, TrInverseLR},
+    AnyOf, SomeOf,
 };
 
-impl<L, R> TrReverseLeftRight for (L, R) {
+pub type BothOf<L, R> = (L, R);
+
+impl<L, R> TrInverseLR for (L, R) {
     type Lt = L;
     type Rt = R;
 
     #[inline]
-    fn reverse(self) -> impl TrReverseLeftRight<Lt = Self::Rt, Rt = Self::Lt> {
+    fn into_inversed(self) -> impl TrInverseLR<Lt = Self::Rt, Rt = Self::Lt> {
         (self.1, self.0)
     }
 }
 
-impl<L, R> TrAnyLeftRight for (L, R) {
+impl<L, R> TrAnyOf for BothOf<L, R> {
     type Lt = L;
     type Rt = R;
 
     #[inline]
-    fn split(self) -> (Option<Self::Lt>, Option<Self::Rt>) {
-        (Option::Some(self.0), Option::Some(self.1))
+    fn into_any_of(self) -> AnyOf<Self::Lt, Self::Rt> {
+        AnyOf::new_both(self.0, self.1)
     }
 
     #[inline]
-    fn map_left<F, T>(self, f: F) -> impl TrAnyLeftRight<Lt = T, Rt = Self::Rt >
+    fn map_left<F, T>(self, f: F) -> impl TrAnyOf<Lt = T, Rt = Self::Rt >
     where
         F: FnOnce(Self::Lt) -> T,
     {
@@ -32,7 +34,7 @@ impl<L, R> TrAnyLeftRight for (L, R) {
     }
 
     #[inline]
-    fn map_right<F, T>(self, f: F) -> impl TrAnyLeftRight<Lt = Self::Lt, Rt = T>
+    fn map_right<F, T>(self, f: F) -> impl TrAnyOf<Lt = Self::Lt, Rt = T>
     where
         F: FnOnce(Self::Rt) -> T,
     {
@@ -55,7 +57,7 @@ impl<L, R> TrAnyLeftRight for (L, R) {
     }
 
     #[inline]
-    fn as_ref<'a>(&'a self) -> impl TrAnyLeftRight<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    fn as_ref<'a>(&'a self) -> impl TrAnyOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
     where
         Self::Lt: 'a,
         Self::Rt: 'a,
@@ -64,7 +66,7 @@ impl<L, R> TrAnyLeftRight for (L, R) {
     }
 
     #[inline]
-    fn as_mut<'a>(&'a mut self) -> impl TrAnyLeftRight<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    fn as_mut<'a>(&'a mut self) -> impl TrAnyOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
     where
         Self::Lt: 'a,
         Self::Rt: 'a,

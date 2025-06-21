@@ -6,6 +6,8 @@ pub mod both;
 pub mod either;
 pub mod some_of;
 
-pub use any_of::Any;
-pub use either::Either;
-pub use some_of::SomeOf;
+pub use abs::{TrAnyOf, TrInverseLR};
+pub use any_of::{AnyOf, AnyLR};
+pub use both::BothOf;
+pub use either::{EitherOf, TrEitherOf};
+pub use some_of::{SomeOf, SomeLR};

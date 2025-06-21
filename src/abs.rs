@@ -1,27 +1,32 @@
 use core::convert::Infallible;
 
-use crate::{Any, SomeOf};
+use crate::{AnyOf, SomeOf};
+
+pub use crate::{
+    either::TrEitherOf,
+    some_of::TrSomeOf,
+};
 
 /// A trait for types that you can reverse left to right, or the opposite.
-pub trait TrReverseLeftRight {
+pub trait TrInverseLR {
     type Lt;
     type Rt;
 
-    fn reverse(self) -> impl TrReverseLeftRight<Lt = Self::Rt, Rt = Self::Lt>;
+    fn into_inversed(self) -> impl TrInverseLR<Lt = Self::Rt, Rt = Self::Lt>;
 }
 
 /// Trait for types that may contain zero or more variants among left type and right type.
-pub trait TrAnyLeftRight {
+pub trait TrAnyOf {
     type Lt;
     type Rt;
 
-    fn split(self) -> (Option<Self::Lt>, Option<Self::Rt>);
+    fn into_any_of(self) -> AnyOf<Self::Lt, Self::Rt>;
 
-    fn map_left<F, U>(self, f: F) -> impl TrAnyLeftRight<Lt = U, Rt = Self::Rt>
+    fn map_left<F, U>(self, f: F) -> impl TrAnyOf<Lt = U, Rt = Self::Rt>
     where
         F: FnOnce(Self::Lt) -> U;
 
-    fn map_right<F, U>(self, f: F) -> impl TrAnyLeftRight<Lt = Self::Lt, Rt = U>
+    fn map_right<F, U>(self, f: F) -> impl TrAnyOf<Lt = Self::Lt, Rt = U>
     where
         F: FnOnce(Self::Rt) -> U;
 
@@ -33,12 +38,12 @@ pub trait TrAnyLeftRight {
     where
         Self: Sized;
 
-    fn as_ref<'a>(&'a self) -> impl TrAnyLeftRight<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    fn as_ref<'a>(&'a self) -> impl TrAnyOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
     where
         Self::Lt: 'a,
         Self::Rt: 'a;
 
-    fn as_mut<'a>(&'a mut self) -> impl TrAnyLeftRight<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    fn as_mut<'a>(&'a mut self) -> impl TrAnyOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
     where
         Self::Lt: 'a,
         Self::Rt: 'a;
@@ -49,14 +54,14 @@ pub trait TrAnyLeftRight {
     where
         Self: Sized
     {
-        self.split().0
+        self.into_any_of().pick_left()
     }
 
     fn pick_right(self) -> Option<Self::Rt>
     where
         Self: Sized
     {
-        self.split().1
+        self.into_any_of().pick_right()
     }
 
     fn contains_left(&self) -> bool {
@@ -90,18 +95,18 @@ pub trait TrAnyLeftRight {
     }
 }
 
-impl<T, E> TrAnyLeftRight for Result<T, E> {
+impl<T, E> TrAnyOf for Result<T, E> {
     type Lt = T;
     type Rt = E;
 
-    fn split(self) -> (Option<Self::Lt>, Option<Self::Rt>) {
+    fn into_any_of(self) -> AnyOf<Self::Lt, Self::Rt> {
         match self {
-            Result::Ok(t) => (Option::Some(t), Option::None),
-            Result::Err(e) => (Option::None, Option::Some(e)),
+            Result::Ok(x) => AnyOf::new_left(x),
+            Result::Err(e) => AnyOf::new_right(e),
         }
     }
 
-    fn map_left<F, U>(self, f: F) -> impl TrAnyLeftRight<Lt = U, Rt = Self::Rt >
+    fn map_left<F, U>(self, f: F) -> impl TrAnyOf<Lt = U, Rt = Self::Rt >
     where
         F: FnOnce(Self::Lt) -> U,
     {
@@ -111,7 +116,7 @@ impl<T, E> TrAnyLeftRight for Result<T, E> {
         }
     }
 
-    fn map_right<F, U>(self, f: F) -> impl TrAnyLeftRight<Lt = Self::Lt, Rt = U>
+    fn map_right<F, U>(self, f: F) -> impl TrAnyOf<Lt = Self::Lt, Rt = U>
     where
         F: FnOnce(Self::Rt) -> U,
     {
@@ -136,7 +141,7 @@ impl<T, E> TrAnyLeftRight for Result<T, E> {
     }
 
     #[inline]
-    fn as_ref<'a>(&'a self) -> impl TrAnyLeftRight<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    fn as_ref<'a>(&'a self) -> impl TrAnyOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
     where
         Self::Lt: 'a,
         Self::Rt: 'a,
@@ -145,7 +150,7 @@ impl<T, E> TrAnyLeftRight for Result<T, E> {
     }
 
     #[inline]
-    fn as_mut<'a>(&'a mut self) -> impl TrAnyLeftRight<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    fn as_mut<'a>(&'a mut self) -> impl TrAnyOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
     where
         Self::Lt: 'a,
         Self::Rt: 'a,
@@ -154,26 +159,29 @@ impl<T, E> TrAnyLeftRight for Result<T, E> {
     }
 }
 
-impl<T> TrAnyLeftRight for Option<T> {
+impl<T> TrAnyOf for Option<T> {
     type Lt = T;
     type Rt = Infallible;
 
-    fn split(self) -> (Option<Self::Lt>, Option<Self::Rt>) {
-        (self, Option::None)
+    fn into_any_of(self) -> AnyOf<Self::Lt, Self::Rt> {
+        match self {
+            Option::Some(x) => AnyOf::new_left(x),
+            _ => AnyOf::new_neither(),
+        }
     }
 
-    fn map_left<F, U>(self, f: F) -> impl TrAnyLeftRight<Lt = U, Rt = Self::Rt>
+    fn map_left<F, U>(self, f: F) -> impl TrAnyOf<Lt = U, Rt = Self::Rt>
     where
         F: FnOnce(Self::Lt) -> U,
     {
         self.map(f)
     }
 
-    fn map_right<F, U>(self, _: F) -> impl TrAnyLeftRight<Lt = Self::Lt, Rt = U>
+    fn map_right<F, U>(self, _: F) -> impl TrAnyOf<Lt = Self::Lt, Rt = U>
     where
         F: FnOnce(Self::Rt) -> U
     {
-        Any::<Self::Lt, U>::new_neither()
+        AnyOf::<Self::Lt, U>::new_neither()
     }
 
     fn take_left(self) -> SomeOf<Self::Lt, Self>
@@ -193,27 +201,27 @@ impl<T> TrAnyLeftRight for Option<T> {
         SomeOf::new_right(Option::None)
     }
 
-    fn as_ref<'a>(&'a self) -> impl TrAnyLeftRight<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    fn as_ref<'a>(&'a self) -> impl TrAnyOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
     where
         Self::Lt: 'a,
         Self::Rt: 'a,
     {
         if let Option::Some(t) = self.as_ref() {
-            Any::new_left(t)
+            AnyOf::new_left(t)
         } else {
-            Any::new_neither()
+            AnyOf::new_neither()
         }
     }
 
-    fn as_mut<'a>(&'a mut self) -> impl TrAnyLeftRight<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    fn as_mut<'a>(&'a mut self) -> impl TrAnyOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
     where
         Self::Lt: 'a,
         Self::Rt: 'a
     {
         if let Option::Some(t) = self.as_mut() {
-            Any::new_left(t)
+            AnyOf::new_left(t)
         } else {
-            Any::new_neither()
+            AnyOf::new_neither()
         }
     }
 }

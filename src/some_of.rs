@@ -1,7 +1,14 @@
 use crate::{
-    abs::{TrAnyLeftRight, TrReverseLeftRight},
-    Either, Any,
+    abs::{TrAnyOf, TrInverseLR},
+    EitherOf, AnyOf,
 };
+
+pub trait TrSomeOf {
+    type Lt;
+    type Rt;
+
+    fn into_some_of(self) -> SomeOf<Self::Lt, Self::Rt>;
+}
 
 /// An wrapper around `SomeLR<L, R>`. This is to avoid misunderstanding for
 /// the semantic APIs like `TrAnyLeftRight::map_left`. In detail, the variant
@@ -22,8 +29,12 @@ impl<L, R> SomeOf<L, R> {
         SomeOf(SomeLR::Both((l, r)))
     }
 
-    pub fn split(self) -> (Option<L>, Option<R>) {
-        SomeLR::split(self.0)
+    pub fn into_any_of(self) -> AnyOf<L, R> {
+        match self.0 {
+            SomeLR::Left(l) => AnyOf::new_left(l),
+            SomeLR::Right(r) => AnyOf::new_right(r),
+            SomeLR::Both((l, r,)) => AnyOf::new_both(l, r),
+        }
     }
 
     pub fn map_left<F, T>(self, f: F) -> SomeOf<T, R>
@@ -96,11 +107,11 @@ impl<L, R> SomeOf<L, R> {
     }
 }
 
-impl<L, R> From<Either<L, R>> for SomeOf<L, R> {
-    fn from(value: Either<L, R>) -> Self {
+impl<L, R> From<EitherOf<L, R>> for SomeOf<L, R> {
+    fn from(value: EitherOf<L, R>) -> Self {
         match value {
-            Either::Left(x) => SomeOf::new_left(x),
-            Either::Right(x) => SomeOf::new_right(x),
+            EitherOf::Left(x) => SomeOf::new_left(x),
+            EitherOf::Right(x) => SomeOf::new_right(x),
         }
     }
 }
@@ -120,40 +131,40 @@ impl<T, E> From<Result<T, E>> for SomeOf<T, E> {
     }
 }
 
-impl<L, R> TryFrom<Any<L, R>> for SomeOf<L, R> {
-    type Error = Any<L, R>;
+impl<L, R> TryFrom<AnyOf<L, R>> for SomeOf<L, R> {
+    type Error = AnyOf<L, R>;
 
-    fn try_from(value: Any<L, R>) -> Result<Self, Any<L, R>> {
+    fn try_from(value: AnyOf<L, R>) -> Result<Self, AnyOf<L, R>> {
         match value.split() {
             (Option::Some(l), Option::Some(r)) => Result::Ok(SomeOf::new_both(l, r)),
             (Option::Some(l), Option::None) => Result::Ok(SomeOf::new_left(l)),
             (Option::None, Option::Some(r)) => Result::Ok(SomeOf::new_right(r)),
-            _ => Result::Err(Any::new_neither()),
+            _ => Result::Err(AnyOf::new_neither()),
         }
     }
 }
 
-impl<L, R> TrReverseLeftRight for SomeOf<L, R> {
+impl<L, R> TrInverseLR for SomeOf<L, R> {
     type Lt = L;
     type Rt = R;
 
     #[inline]
-    fn reverse(self) -> impl TrReverseLeftRight<Lt = Self::Rt, Rt = Self::Lt> {
+    fn into_inversed(self) -> impl TrInverseLR<Lt = Self::Rt, Rt = Self::Lt> {
         SomeOf::reverse(self)
     }
 }
 
-impl<L, R> TrAnyLeftRight for SomeOf<L, R> {
+impl<L, R> TrAnyOf for SomeOf<L, R> {
     type Lt = L;
     type Rt = R;
 
     #[inline]
-    fn split(self) -> (Option<Self::Lt>, Option<Self::Rt>) {
-        SomeOf::split(self)
+    fn into_any_of(self) -> AnyOf<Self::Lt, Self::Rt> {
+        SomeOf::into_any_of(self)
     }
 
     #[inline]
-    fn map_left<F, T>(self, f: F) -> impl TrAnyLeftRight<Lt = T, Rt = Self::Rt >
+    fn map_left<F, T>(self, f: F) -> impl TrAnyOf<Lt = T, Rt = Self::Rt >
     where
         F: FnOnce(Self::Lt) -> T,
     {
@@ -161,7 +172,7 @@ impl<L, R> TrAnyLeftRight for SomeOf<L, R> {
     }
 
     #[inline]
-    fn map_right<F, T>(self, f: F) -> impl TrAnyLeftRight<Lt = Self::Lt, Rt = T>
+    fn map_right<F, T>(self, f: F) -> impl TrAnyOf<Lt = Self::Lt, Rt = T>
     where
         F: FnOnce(Self::Rt) -> T,
     {
@@ -185,7 +196,7 @@ impl<L, R> TrAnyLeftRight for SomeOf<L, R> {
     }
 
     #[inline]
-    fn as_ref<'a>(&'a self) -> impl TrAnyLeftRight<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    fn as_ref<'a>(&'a self) -> impl TrAnyOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
     where
         Self::Lt: 'a,
         Self::Rt: 'a,
@@ -194,7 +205,7 @@ impl<L, R> TrAnyLeftRight for SomeOf<L, R> {
     }
 
     #[inline]
-    fn as_mut<'a>(&'a mut self) -> impl TrAnyLeftRight<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    fn as_mut<'a>(&'a mut self) -> impl TrAnyOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
     where
         Self::Lt: 'a,
         Self::Rt: 'a,
