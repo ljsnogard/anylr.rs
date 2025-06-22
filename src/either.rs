@@ -1,18 +1,13 @@
 use crate::{
-    abs::{TrAnyOf, TrInverseLR}, AnyOf, SomeOf
+    abs::{TrAnyOf, TrInverseLR},
+    AnyLR, AnyOf, SomeOf, SomeLR, TrSomeOf,
 };
 
 pub trait TrEitherOf {
     type Lt;
     type Rt;
 
-    fn map_left<F, U>(self, f: F) -> impl TrEitherOf<Lt = U, Rt = Self::Rt>
-    where
-        F: FnOnce(Self::Lt) -> U;
-
-    fn map_right<F, U>(self, f: F) -> impl TrEitherOf<Lt = Self::Lt, Rt = U>
-    where
-        F: FnOnce(Self::Rt) -> U;
+    // Required methods
 
     fn as_ref<'a>(&'a self) -> impl TrEitherOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
     where
@@ -23,6 +18,68 @@ pub trait TrEitherOf {
     where
         Self::Lt: 'a,
         Self::Rt: 'a;
+
+    fn into_either_of(self) -> EitherOf<Self::Lt, Self::Rt>;
+
+    // Provided methods
+
+    fn is_left(&self) -> bool {
+        self.as_ref().pick_left().is_some()
+    }
+
+    fn is_right(&self) -> bool {
+        self.as_ref().pick_right().is_some()
+    }
+
+    fn is_left_and<F>(&self, f: F) -> bool
+    where
+        F: FnOnce(&Self::Lt) -> bool,
+    {
+        match self.as_ref().pick_left() {
+            Option::Some(l) => f(l),
+            _ => false,
+        }
+    }
+
+    fn is_right_and<F>(&self, f: F) -> bool
+    where
+        F: FnOnce(&Self::Rt) -> bool,
+    {
+        match self.as_ref().pick_right() {
+            Option::Some(r) => f(r),
+            _ => false,
+        }
+    }
+
+    fn map_left<F, U>(self, f: F) -> EitherOf<U, Self::Rt>
+    where
+        Self: Sized,
+        F: FnOnce(Self::Lt) -> U,
+    {
+        self.into_either_of().map_left(f)
+    }
+
+    fn map_right<F, U>(self, f: F) -> EitherOf<Self::Lt, U>
+    where
+        Self: Sized,
+        F: FnOnce(Self::Rt) -> U,
+    {
+        self.into_either_of().map_right(f)
+    }
+
+    fn pick_left(self) -> Option<Self::Lt>
+    where
+        Self: Sized,
+    {
+        self.into_either_of().pick_left()
+    }
+
+    fn pick_right(self) -> Option<Self::Rt>
+    where
+        Self: Sized,
+    {
+        self.into_either_of().pick_right()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -40,10 +97,35 @@ impl<L, R> EitherOf<L, R> {
         EitherOf::Right(r)
     }
 
-    pub fn split(self) -> (Option<L>, Option<R>) {
+    pub fn into_any_of(self) -> AnyOf<L, R> {
         match self {
-            EitherOf::Left(l) => (Option::Some(l), Option::None),
-            EitherOf::Right(r) => (Option::None, Option::Some(r)),
+            EitherOf::Left(l) => AnyOf::new_left(l),
+            EitherOf::Right(r) => AnyOf::new_right(r),
+        }
+    }
+
+    pub fn into_some_of(self) -> SomeOf<L, R> {
+        match self {
+            EitherOf::Left(l) => SomeOf::new_left(l),
+            EitherOf::Right(r) => SomeOf::new_right(r),
+        }
+    }
+
+    pub fn into_either_of(self) -> EitherOf<L, R> {
+        self
+    }
+
+    pub const fn as_ref(&self) -> EitherOf<&L, &R> {
+        match self {
+            EitherOf::Left(l) => EitherOf::Left(l),
+            EitherOf::Right(r) => EitherOf::Right(r)
+        }
+    }
+
+    pub const fn as_mut(&mut self) -> EitherOf<&mut L, &mut R> {
+        match self {
+            EitherOf::Left(l) => EitherOf::Left(l),
+            EitherOf::Right(r) => EitherOf::Right(r)
         }
     }
 
@@ -69,35 +151,7 @@ impl<L, R> EitherOf<L, R> {
         }
     }
 
-    pub fn take_left(self) -> EitherOf<L, Self> {
-        match self {
-            EitherOf::Left(l) => EitherOf::new_left(l),
-            EitherOf::Right(r) => EitherOf::new_right(EitherOf::new_right(r)),
-        }
-    }
-
-    pub fn take_right(self) -> EitherOf<R, Self> {
-        match self {
-            EitherOf::Left(l) => EitherOf::Right(EitherOf::new_left(l)),
-            EitherOf::Right(r) => EitherOf::new_left(r),
-        }
-    }
-
-    pub const fn as_ref(&self) -> EitherOf<&L, &R> {
-        match self {
-            EitherOf::Left(l) => EitherOf::Left(l),
-            EitherOf::Right(r) => EitherOf::Right(r)
-        }
-    }
-
-    pub const fn as_mut(&mut self) -> EitherOf<&mut L, &mut R> {
-        match self {
-            EitherOf::Left(l) => EitherOf::Left(l),
-            EitherOf::Right(r) => EitherOf::Right(r)
-        }
-    }
-
-    pub fn left(self) -> Option<L> {
+    pub fn pick_left(self) -> Option<L> {
         if let EitherOf::Left(l) = self {
             Option::Some(l)
         } else {
@@ -105,7 +159,7 @@ impl<L, R> EitherOf<L, R> {
         }
     }
 
-    pub fn right(self) -> Option<R> {
+    pub fn pick_right(self) -> Option<R> {
         if let EitherOf::Right(r) = self {
             Option::Some(r)
         } else {
@@ -113,7 +167,7 @@ impl<L, R> EitherOf<L, R> {
         }
     }
 
-    pub fn reverse(self) -> EitherOf<R, L> {
+    pub fn into_inversed(self) -> EitherOf<R, L> {
         match self {
             EitherOf::Left(x) => EitherOf::<R, L>::Right(x),
             EitherOf::Right(x) => EitherOf::<R, L>::Left(x),
@@ -184,59 +238,100 @@ impl<T, E> From<Result<T, E>> for EitherOf<T, E> {
     }
 }
 
+impl<L, R> TryFrom<SomeOf<L, R>> for EitherOf<L, R> {
+    type Error = SomeOf<L, R>;
+
+    fn try_from(value: SomeOf<L, R>) -> Result<Self, Self::Error> {
+        match value.into_inner() {
+            SomeLR::Left(l) => Result::Ok(EitherOf::Left(l)),
+            SomeLR::Right(r) => Result::Ok(EitherOf::Right(r)),
+            SomeLR::Both(l, r ) => Result::Err(SomeOf::new_both(l, r)   ),
+        }
+    }
+}
+
+impl<L, R> TryFrom<AnyOf<L, R>> for EitherOf<L, R> {
+    type Error = AnyOf<L, R>;
+
+    fn try_from(value: AnyOf<L, R>) -> Result<Self, Self::Error> {
+        match value.into_inner() {
+            AnyLR::Left(l) => Result::Ok(EitherOf::Left(l)),
+            AnyLR::Right(r) => Result::Ok(EitherOf::Right(r)),
+            AnyLR::Both(l, r ) => Result::Err(AnyOf::new_both(l, r)),
+            AnyLR::Neither => Result::Err(AnyOf::new_neither()),
+        }
+    }
+}
+
 impl<L, R> TrInverseLR for EitherOf<L, R> {
     type Lt = L;
     type Rt = R;
 
     #[inline]
     fn into_inversed(self) -> impl TrInverseLR<Lt = Self::Rt, Rt = Self::Lt> {
-        EitherOf::reverse(self)
+        EitherOf::into_inversed(self)
+    }
+}
+
+impl<L, R> TrEitherOf for EitherOf<L, R> {
+    type Lt = L;
+    type Rt = R;
+
+    #[inline]
+    fn as_ref<'a>(&'a self) -> impl TrEitherOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    where
+        Self::Lt: 'a,
+        Self::Rt: 'a,
+    {
+        EitherOf::as_ref(self)
+    }
+
+    #[inline]
+    fn as_mut<'a>(&'a mut self) -> impl TrEitherOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    where
+        Self::Lt: 'a,
+        Self::Rt: 'a,
+    {
+        EitherOf::as_mut(self)
+    }
+
+    #[inline]
+    fn into_either_of(self) -> EitherOf<Self::Lt, Self::Rt> {
+        EitherOf::into_either_of(self)
+    }
+}
+
+impl<L, R> TrSomeOf for EitherOf<L, R> {
+    type Lt = L;
+    type Rt = R;
+
+    #[inline]
+    fn as_ref<'a>(&'a self) -> impl TrSomeOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    where
+        Self::Lt: 'a,
+        Self::Rt: 'a,
+    {
+        EitherOf::as_ref(self)
+    }
+
+    #[inline]
+    fn as_mut<'a>(&'a mut self) -> impl TrSomeOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    where
+        Self::Lt: 'a,
+        Self::Rt: 'a,
+    {
+        EitherOf::as_mut(self)
+    }
+
+    #[inline]
+    fn into_some_of(self) -> SomeOf<Self::Lt, Self::Rt> {
+        EitherOf::into_some_of(self)
     }
 }
 
 impl<L, R> TrAnyOf for EitherOf<L, R> {
     type Lt = L;
     type Rt = R;
-
-    #[inline]
-    fn into_any_of(self) -> crate::AnyOf<Self::Lt, Self::Rt> {
-        match self {
-            EitherOf::Left(l) => AnyOf::new_left(l),
-            EitherOf::Right(r) => AnyOf::new_right(r),
-        }
-    }
-
-    #[inline]
-    fn map_left<F, T>(self, f: F) -> impl TrAnyOf<Lt = T, Rt = Self::Rt >
-    where
-        F: FnOnce(Self::Lt) -> T,
-    {
-        EitherOf::map_left(self, f)
-    }
-
-    #[inline]
-    fn map_right<F, T>(self, f: F) -> impl TrAnyOf<Lt = Self::Lt, Rt = T>
-    where
-        F: FnOnce(Self::Rt) -> T,
-    {
-        EitherOf::map_right(self, f)
-    }
-
-    #[inline]
-    fn take_left(self) -> SomeOf<Self::Lt, Self>
-    where
-        Self: Sized
-    {
-        EitherOf::take_left(self).into()
-    }
-
-    #[inline]
-    fn take_right(self) -> SomeOf<Self::Rt, Self>
-    where
-        Self: Sized
-    {
-        EitherOf::take_right(self).into()
-    }
 
     #[inline]
     fn as_ref<'a>(&'a self) -> impl TrAnyOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
@@ -254,6 +349,14 @@ impl<L, R> TrAnyOf for EitherOf<L, R> {
         Self::Rt: 'a,
     {
         EitherOf::as_mut(self)
+    }
+
+    #[inline]
+    fn into_any_of(self) -> crate::AnyOf<Self::Lt, Self::Rt> {
+        match self {
+            EitherOf::Left(l) => AnyOf::new_left(l),
+            EitherOf::Right(r) => AnyOf::new_right(r),
+        }
     }
 
     #[inline]
