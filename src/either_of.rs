@@ -129,7 +129,7 @@ impl<L, R> EitherOf<L, R> {
         }
     }
 
-    /// Maps Either<L, R> to Either<T, R>
+    /// Maps EitherOf<L, R> to EitherOf<T, R>
     pub fn map_left<F, T>(self, f: F) -> EitherOf<T, R>
     where
         F: FnOnce(L) -> T,
@@ -140,7 +140,7 @@ impl<L, R> EitherOf<L, R> {
         }
     }
 
-    /// Maps Either<L, R> to Either<L, T>
+    /// Maps EitherOf<L, R> to EitherOf<L, T>
     pub fn map_right<F, T>(self, f: F) -> EitherOf<L, T>
     where
         F: FnOnce(R) -> T,
@@ -175,17 +175,11 @@ impl<L, R> EitherOf<L, R> {
     }
 
     pub const fn is_left(&self) -> bool {
-        match self {
-            EitherOf::Left(_) => true,
-            _ => false,
-        }
+        matches!(self, EitherOf::Left(_))
     }
 
     pub const fn is_right(&self) -> bool {
-        match self {
-            EitherOf::Right(_) => true,
-            _ => false,
-        }
+        matches!(self, EitherOf::Right(_))
     }
 
     pub fn is_left_and<F>(&self, f: F) -> bool

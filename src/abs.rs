@@ -3,7 +3,7 @@ use core::convert::Infallible;
 use crate::{AnyOf, SomeOf};
 
 pub use crate::{
-    either::TrEitherOf,
+    either_of::TrEitherOf,
     some_of::TrSomeOf,
 };
 

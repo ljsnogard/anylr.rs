@@ -12,14 +12,14 @@ impl<L, R> AnyOf<L, R> {
         AnyOf(inner)
     }
 
-    /// Wraps value of `L` with Any<L, R>.
+    /// Wraps value of `L` with AnyOf<L, R>.
     /// 
     /// # Examples
     /// 
     /// ```
-    /// use anylr::Any;
+    /// use anylr::AnyOf;
     /// 
-    /// let a = Any::<usize, f64>::new_left(0usize);
+    /// let a = AnyOf::<usize, f64>::new_left(0usize);
     /// assert!(a.contains_left());
     /// assert!(!a.contains_right());
     /// ```
@@ -27,14 +27,14 @@ impl<L, R> AnyOf<L, R> {
         AnyOf(AnyLR::Left(l))
     }
 
-    /// Wraps value of `R` with Any<L, R>.
+    /// Wraps value of `R` with AnyOf<L, R>.
     ///
     /// # Examples
     /// 
     /// ```
-    /// use anylr::Any;
+    /// use anylr::AnyOf;
     ///
-    /// let a = Any::<usize, f64>::new_right(0.0f64);
+    /// let a = AnyOf::<usize, f64>::new_right(0.0f64);
     /// assert!(!a.contains_left());
     /// assert!(a.contains_right());
     /// ```
@@ -42,14 +42,14 @@ impl<L, R> AnyOf<L, R> {
         AnyOf(AnyLR::Right(r))
     }
 
-    /// Wraps a pair of values of type `L` and `R` with Any<L, R>.
+    /// Wraps a pair of values of type `L` and `R` with AnyOf<L, R>.
     ///
     /// # Examples
     /// 
     /// ```
-    /// use anylr::Any;
+    /// use anylr::AnyOf;
     ///
-    /// let a = Any::<usize, f64>::new_both(0usize, 0.0f64);
+    /// let a = AnyOf::<usize, f64>::new_both(0usize, 0.0f64);
     /// assert!(a.contains_left());
     /// assert!(a.contains_right());
     /// ```
@@ -57,14 +57,14 @@ impl<L, R> AnyOf<L, R> {
         AnyOf(AnyLR::Both(l, r))
     }
 
-    /// Creates a value of `Any<L, R>` that contains no values.
+    /// Creates a value of `AnyOf<L, R>` that contains no values.
     /// 
     /// # Examples
     /// 
     /// ```
-    /// use anylr::Any;
+    /// use anylr::AnyOf;
     ///
-    /// let a = Any::<usize, f64>::new_neither();
+    /// let a = AnyOf::<usize, f64>::new_neither();
     /// assert!(!a.contains_left());
     /// assert!(!a.contains_right());
     /// ```
@@ -78,26 +78,26 @@ impl<L, R> AnyOf<L, R> {
     /// # Examples
     /// 
     /// ```
-    /// use anylr::Any;
+    /// use anylr::AnyOf;
     ///
     /// let l = 0usize;
     /// let r = 0.0f64;
-    /// let a = Any::new_both(l, r);
-    /// let t = a.split();
+    /// let a = AnyOf::new_both(l, r);
+    /// let t = a.split().into_inner();
     /// assert_eq!(Option::Some(l), t.0);
     /// assert_eq!(Option::Some(r), t.1);
     /// ```
     #[inline]
     pub fn split(self) -> BothOf<Option<L>, Option<R>> {
         match self.0 {
-            AnyLR::Neither => (Option::None, Option::None),
-            AnyLR::Left(l) => (Option::Some(l), Option::None),
-            AnyLR::Right(r) => (Option::None, Option::Some(r)),
-            AnyLR::Both(l, r) => (Option::Some(l), Option::Some(r)),
+            AnyLR::Neither => BothOf::new(Option::None, Option::None),
+            AnyLR::Left(l) => BothOf::new(Option::Some(l), Option::None),
+            AnyLR::Right(r) => BothOf::new(Option::None, Option::Some(r)),
+            AnyLR::Both(l, r) => BothOf::new(Option::Some(l), Option::Some(r)),
         }
     }
 
-    /// Makes a `Any<L, R>` to `Any<U, R>` by applying a function to a containing
+    /// Makes a `AnyOf<L, R>` to `AnyOf<U, R>` by applying a function to a containing
     /// `Left` value of type `L`, leaving `Right` value of type `R` untouched.
     #[inline]
     pub fn map_left<F, U>(self, f: F) -> AnyOf<U, R>
@@ -112,7 +112,7 @@ impl<L, R> AnyOf<L, R> {
         AnyOf(inner)
     }
 
-    /// Makes a `Any<L, R>` to `Any<L, U>` by applying a function to a containing
+    /// Makes a `AnyOf<L, R>` to `AnyOf<L, U>` by applying a function to a containing
     /// `Right` value of type `R`, leaving `Left` value of type `L` untouched.
     #[inline]
     pub fn map_right<F, U>(self, f: F) -> AnyOf<L, U>
@@ -168,23 +168,11 @@ impl<L, R> AnyOf<L, R> {
     }
 
     pub fn contains_left(&self) -> bool {
-        match self.0 {
-            AnyLR::Left(_) => true,
-            AnyLR::Both(_, _) => true,
-            _ => false,
-        }
+        matches!(self.0, AnyLR::Left(_) | AnyLR::Both(_, _))
     }
 
     pub fn contains_right(&self) -> bool {
-        match self.0 {
-            AnyLR::Right(_) => true,
-            AnyLR::Both(_, _) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_both(&self) -> bool {
-        matches!(self.0, AnyLR::Both(_, _))
+        matches!(self.0, AnyLR::Right(_) | AnyLR::Both(_, _))
     }
 
     pub fn is_neither(&self) -> bool {
@@ -219,7 +207,8 @@ impl<L, R> From<EitherOf<L, R>> for AnyOf<L, R> {
 
 impl<L, R> From<BothOf<L, R>> for AnyOf<L, R> {
     fn from(value: BothOf<L, R>) -> Self {
-        AnyOf::new_both(value.0, value.1)
+        let (l, r) = value.into_inner();
+        AnyOf::new_both(l, r)
     }
 }
 
@@ -231,7 +220,7 @@ impl<L, R> From<SomeOf<L, R>> for AnyOf<L, R> {
 
 impl<L, R> From<BothOf<Option<L>, Option<R>>> for AnyOf<L, R> {
     fn from(value: BothOf<Option<L>, Option<R>>) -> Self {
-        match value {
+        match value.into_inner() {
             (Option::Some(l), Option::Some(r)) => AnyOf::new_both(l, r),
             (Option::Some(l), Option::None) => AnyOf::new_left(l),
             (Option::None, Option::Some(r)) => AnyOf::new_right(r),

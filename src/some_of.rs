@@ -21,6 +21,8 @@ pub trait TrSomeOf {
 
     fn into_some_of(self) -> SomeOf<Self::Lt, Self::Rt>;
 
+    // Provided methods
+
     fn contains_left(&self) -> bool {
         self.as_ref().pick_left().is_some()
     }
@@ -129,6 +131,10 @@ impl<L, R> SomeOf<L, R> {
         }
     }
 
+    pub fn into_inversed(self) -> SomeOf<R, L> {
+        SomeOf(self.0.into_inversed())
+    }
+
     pub fn as_ref(&self) -> SomeOf<&L, &R> {
         match &self.0 {
             SomeLR::Left(l) => SomeOf::new_left(l),
@@ -143,10 +149,6 @@ impl<L, R> SomeOf<L, R> {
             SomeLR::Right(r) => SomeOf::new_right(r),
             SomeLR::Both(l, r) => SomeOf::new_both(l, r)
         }
-    }
-
-    pub fn into_inversed(self) -> SomeOf<R, L> {
-        SomeOf(self.0.into_inversed())
     }
 
     /// The variant is `SomeOf::Left` or `SomeOf::Both`
@@ -231,8 +233,9 @@ impl<L, R> From<EitherOf<L, R>> for SomeOf<L, R> {
 }
 
 impl<L, R> From<BothOf<L, R>> for SomeOf<L, R> {
-    fn from(value: (L, R,)) -> Self {
-        SomeOf::new_both(value.0, value.1)
+    fn from(value: BothOf<L, R>) -> Self {
+        let (l, r) = value.into_inner();
+        SomeOf::new_both(l, r)
     }
 }
 
@@ -396,20 +399,12 @@ impl<L, R> SomeLR<L, R> {
 
     /// The variant is `SomeOf::Left` or `SomeOf::Both`
     pub(crate) fn contains_left(&self) -> bool {
-        match self {
-            SomeLR::Left(_) => true,
-            SomeLR::Both(_, _) => true,
-            _ => false,
-        }
+        matches!(self, SomeLR::Left(_) | SomeLR::Both(_, _))
     }
 
     /// The variant is `SomeOf::Right` or `SomeOf::Both`
     pub(crate) fn contains_right(&self) -> bool {
-        match self {
-            SomeLR::Right(_) => true,
-            SomeLR::Both(_, _) => true,
-            _ => false,
-        }
+        matches!(self, SomeLR::Right(_) | SomeLR::Both(_, _))
     }
 
     /// The variant is just `SomeOf::Both`
