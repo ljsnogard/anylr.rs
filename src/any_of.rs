@@ -1,7 +1,90 @@
 use crate::{
-    abs::{TrAnyOf, TrInverseLR},
+    commutative::{CommutativeVariant, TrCommutative},
     BothOf, EitherOf, SomeOf,
 };
+
+/// Trait for types that may contain zero or more variants among left type and right type.
+pub trait TrAnyOf
+where
+    Self: TrCommutative<Left = Self::Lt, Right = Self::Rt>,
+{
+    type Lt;
+    type Rt;
+
+    // Required methods
+
+    fn as_ref<'a>(&'a self) -> impl TrAnyOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    where
+        Self::Lt: 'a,
+        Self::Rt: 'a;
+
+    fn as_mut<'a>(&'a mut self) -> impl TrAnyOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    where
+        Self::Lt: 'a,
+        Self::Rt: 'a;
+
+    fn into_any_of(self) -> AnyOf<Self::Lt, Self::Rt>;
+
+    // Provided methods
+
+    fn contains_left(&self) -> bool {
+        self.as_ref().pick_left().is_some()
+    }
+
+    fn contains_right(&self) -> bool {
+        self.as_ref().pick_right().is_some()
+    }
+
+    fn contains_left_and<F>(&self, f: F) -> bool
+    where
+        F: FnOnce(&Self::Lt) -> bool,
+    {
+        match self.as_ref().pick_left() {
+            Option::Some(l) => f(l),
+            _ => false,
+        }
+    }
+
+    fn contains_right_and<F>(&self, f: F) -> bool
+    where
+        F: FnOnce(&Self::Rt) -> bool,
+    {
+        match self.as_ref().pick_right() {
+            Option::Some(r) => f(r),
+            _ => false,
+        }
+    }
+
+    fn map_left<F, U>(self, f: F) -> AnyOf<U, Self::Rt>
+    where
+        Self: Sized,
+        F: FnOnce(Self::Lt) -> U,
+    {
+        self.into_any_of().map_left(f)
+    }
+
+    fn map_right<F, U>(self, f: F) -> AnyOf<Self::Lt, U>
+    where
+        Self: Sized,
+        F: FnOnce(Self::Rt) -> U,
+    {
+        self.into_any_of().map_right(f)
+    }
+
+    fn pick_left(self) -> Option<Self::Lt>
+    where
+        Self: Sized
+    {
+        self.into_any_of().pick_left()
+    }
+
+    fn pick_right(self) -> Option<Self::Rt>
+    where
+        Self: Sized
+    {
+        self.into_any_of().pick_right()
+    }
+}
 
 /// A combination of zero or one, `L` and `R`
 #[derive(Clone, Debug)]
@@ -83,21 +166,21 @@ impl<L, R> AnyOf<L, R> {
     /// let l = 0usize;
     /// let r = 0.0f64;
     /// let a = AnyOf::new_both(l, r);
-    /// let t = a.split().into_inner();
+    /// let t = a.split();
     /// assert_eq!(Option::Some(l), t.0);
     /// assert_eq!(Option::Some(r), t.1);
     /// ```
     #[inline]
-    pub fn split(self) -> BothOf<Option<L>, Option<R>> {
+    pub fn split(self) -> (Option<L>, Option<R>) {
         match self.0 {
-            AnyLR::Neither => BothOf::new(Option::None, Option::None),
-            AnyLR::Left(l) => BothOf::new(Option::Some(l), Option::None),
-            AnyLR::Right(r) => BothOf::new(Option::None, Option::Some(r)),
-            AnyLR::Both(l, r) => BothOf::new(Option::Some(l), Option::Some(r)),
+            AnyLR::Neither => (Option::None, Option::None),
+            AnyLR::Left(l) => (Option::Some(l), Option::None),
+            AnyLR::Right(r) => (Option::None, Option::Some(r)),
+            AnyLR::Both(l, r) => (Option::Some(l), Option::Some(r)),
         }
     }
 
-    /// Makes a `AnyOf<L, R>` to `AnyOf<U, R>` by applying a function to a containing
+    /// Makes an `AnyOf<L, R>` to `AnyOf<U, R>` by applying a function to a containing
     /// `Left` value of type `L`, leaving `Right` value of type `R` untouched.
     #[inline]
     pub fn map_left<F, U>(self, f: F) -> AnyOf<U, R>
@@ -112,7 +195,7 @@ impl<L, R> AnyOf<L, R> {
         AnyOf(inner)
     }
 
-    /// Makes a `AnyOf<L, R>` to `AnyOf<L, U>` by applying a function to a containing
+    /// Makes an `AnyOf<L, R>` to `AnyOf<L, U>` by applying a function to a containing
     /// `Right` value of type `R`, leaving `Left` value of type `L` untouched.
     #[inline]
     pub fn map_right<F, U>(self, f: F) -> AnyOf<L, U>
@@ -127,29 +210,67 @@ impl<L, R> AnyOf<L, R> {
         AnyOf(inner)
     }
 
-    pub fn take_left(self) -> SomeOf<L, Option<R>> {
+    /// Makes an `AnyOf<L, R>` into `Option<L>` as long as a value of `L` is contained.
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// use anylr::AnyOf;
+    ///
+    /// let l = 0usize;
+    /// let r = 0.0f64;
+    /// let a = AnyOf::new_both(l, r);
+    /// assert_eq!(Option::Some(l), a.clone().pick_left());
+    /// assert_eq!(Option::Some(r), a.clone().pick_right());
+    /// 
+    /// let a = AnyOf::<usize, f64>::new_left(l);
+    /// assert_eq!(Option::Some(l), a.clone().pick_left());
+    /// assert_eq!(Option::None, a.clone().pick_right());
+    /// ```
+    #[inline]
+    pub fn pick_left(self) -> Option<L> {
         match self.0 {
-            AnyLR::Neither => SomeOf::new_right(Option::None),
-            AnyLR::Left(l) => SomeOf::new_both(l, Option::None),
-            AnyLR::Right(r) => SomeOf::new_right(Option::Some(r)),
-            AnyLR::Both(l, r) => SomeOf::new_both(l, Option::Some(r)),
+            AnyLR::Both(l, _) => Option::Some(l),
+            AnyLR::Left(l) => Option::Some(l),
+            _ => Option::None,
         }
     }
 
-    pub fn take_right(self) -> SomeOf<R, Option<L>> {
+    /// Makes an `AnyOf<L, R>` into `Option<R>` as long as a value of `R` is contained.
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// use anylr::AnyOf;
+    ///
+    /// let l = 0usize;
+    /// let r = 0.0f64;
+    /// let a = AnyOf::new_both(l, r);
+    /// assert_eq!(Option::Some(r), a.clone().pick_right());
+    /// assert_eq!(Option::Some(l), a.clone().pick_left());
+    /// 
+    /// let a = AnyOf::<usize, f64>::new_right(r);
+    /// assert_eq!(Option::Some(r), a.clone().pick_right());
+    /// assert_eq!(Option::None, a.clone().pick_left());
+    /// ```
+    #[inline]
+    pub fn pick_right(self) -> Option<R> {
         match self.0 {
-            AnyLR::Neither => SomeOf::new_right(Option::None),
-            AnyLR::Left(l) => SomeOf::new_right(Option::Some(l)),
-            AnyLR::Right(r) => SomeOf::new_left(r),
-            AnyLR::Both(l, r) => SomeOf::new_both(r, Option::Some(l)),
+            AnyLR::Both(_, r) => Option::Some(r),
+            AnyLR::Right(r) => Option::Some(r),
+            _ => Option::None,
         }
     }
 
-    pub fn into_inversed(self) -> AnyOf<R, L> {
-        AnyOf(self.0.into_inversed())
+    pub fn into_commutated(self) -> AnyOf<R, L> {
+        AnyOf(self.0.into_commutated())
     }
 
-    pub fn as_ref(&self) -> AnyOf<&L, &R> {
+    pub fn into_variant(self) -> CommutativeVariant<L, R> {
+        CommutativeVariant::Any(self)
+    }
+
+    pub const fn as_ref(&self) -> AnyOf<&L, &R> {
         match &self.0 {
             AnyLR::Neither => AnyOf::new_neither(),
             AnyLR::Left(l) => AnyOf::new_left(l),
@@ -158,7 +279,7 @@ impl<L, R> AnyOf<L, R> {
         }
     }
 
-    pub fn as_mut(&mut self) -> AnyOf<&mut L, &mut R> {
+    pub const fn as_mut(&mut self) -> AnyOf<&mut L, &mut R> {
         match &mut self.0 {
             AnyLR::Neither => AnyOf::new_neither(),
             AnyLR::Left(l) => AnyOf::new_left(l),
@@ -167,15 +288,15 @@ impl<L, R> AnyOf<L, R> {
         }
     }
 
-    pub fn contains_left(&self) -> bool {
+    pub const fn contains_left(&self) -> bool {
         matches!(self.0, AnyLR::Left(_) | AnyLR::Both(_, _))
     }
 
-    pub fn contains_right(&self) -> bool {
+    pub const fn contains_right(&self) -> bool {
         matches!(self.0, AnyLR::Right(_) | AnyLR::Both(_, _))
     }
 
-    pub fn is_neither(&self) -> bool {
+    pub const fn is_neither(&self) -> bool {
         matches!(self.0, AnyLR::Neither)
     }
 
@@ -207,7 +328,7 @@ impl<L, R> From<EitherOf<L, R>> for AnyOf<L, R> {
 
 impl<L, R> From<BothOf<L, R>> for AnyOf<L, R> {
     fn from(value: BothOf<L, R>) -> Self {
-        let (l, r) = value.into_inner();
+        let (l, r) = value.split();
         AnyOf::new_both(l, r)
     }
 }
@@ -220,7 +341,7 @@ impl<L, R> From<SomeOf<L, R>> for AnyOf<L, R> {
 
 impl<L, R> From<BothOf<Option<L>, Option<R>>> for AnyOf<L, R> {
     fn from(value: BothOf<Option<L>, Option<R>>) -> Self {
-        match value.into_inner() {
+        match value.split() {
             (Option::Some(l), Option::Some(r)) => AnyOf::new_both(l, r),
             (Option::Some(l), Option::None) => AnyOf::new_left(l),
             (Option::None, Option::Some(r)) => AnyOf::new_right(r),
@@ -229,13 +350,18 @@ impl<L, R> From<BothOf<Option<L>, Option<R>>> for AnyOf<L, R> {
     }
 }
 
-impl<L, R> TrInverseLR for AnyOf<L, R> {
-    type Lt = L;
-    type Rt = R;
+impl<L, R> TrCommutative for AnyOf<L, R> {
+    type Left = L;
+    type Right = R;
 
     #[inline]
-    fn into_inversed(self) -> impl TrInverseLR<Lt = Self::Rt, Rt = Self::Lt> {
-        AnyOf::into_inversed(self)
+    fn into_commutated(self) -> impl TrCommutative<Left = Self::Right, Right = Self::Left> {
+        AnyOf::into_commutated(self)
+    }
+
+    #[inline]
+    fn into_variant(self) -> CommutativeVariant<Self::Left, Self::Right> {
+        AnyOf::into_variant(self)
     }
 }
 
@@ -279,11 +405,12 @@ pub enum AnyLR<L, R> {
 }
 
 impl<L, R> AnyLR<L, R> {
+    #[inline]
     pub fn into_any_of(self) -> AnyOf<L, R> {
         AnyOf(self)
     }
 
-    pub fn into_inversed(self) -> AnyLR<R, L> {
+    pub fn into_commutated(self) -> AnyLR<R, L> {
         match self {
             AnyLR::Neither => AnyLR::Neither,
             AnyLR::Left(x) => AnyLR::Right(x),
@@ -292,7 +419,12 @@ impl<L, R> AnyLR<L, R> {
         }
     }
 
-    pub fn as_ref(&self) -> AnyLR<&L, &R> {
+    #[inline]
+    pub fn into_variant(self) -> CommutativeVariant<L, R> {
+        CommutativeVariant::Any(self.into_any_of())
+    }
+
+    pub const fn as_ref(&self) -> AnyLR<&L, &R> {
         match self {
             AnyLR::Neither => AnyLR::Neither,
             AnyLR::Left(x) => AnyLR::Left(x),
@@ -301,7 +433,7 @@ impl<L, R> AnyLR<L, R> {
         }
     }
 
-    pub fn as_mut(&mut self) -> AnyLR<&mut L, &mut R> {
+    pub const fn as_mut(&mut self) -> AnyLR<&mut L, &mut R> {
         match self {
             AnyLR::Neither => AnyLR::Neither,
             AnyLR::Left(x) => AnyLR::Left(x),
@@ -314,13 +446,18 @@ impl<L, R> AnyLR<L, R> {
 impl<L: Copy, R: Copy> Copy for AnyLR<L, R>
 {}
 
-impl<L, R> TrInverseLR for AnyLR<L, R> {
-    type Lt = L;
-    type Rt = R;
+impl<L, R> TrCommutative for AnyLR<L, R> {
+    type Left = L;
+    type Right = R;
 
     #[inline]
-    fn into_inversed(self) -> impl TrInverseLR<Lt = Self::Rt, Rt = Self::Lt> {
-        AnyLR::into_inversed(self)
+    fn into_commutated(self) -> impl TrCommutative<Left = R, Right = L> {
+        AnyLR::into_commutated(self)
+    }
+
+    #[inline]
+    fn into_variant(self) -> CommutativeVariant<L, R> {
+        AnyLR::into_variant(self)
     }
 }
 

@@ -1,9 +1,12 @@
 use crate::{
-    abs::{TrAnyOf, TrInverseLR},
-    AnyLR, AnyOf, SomeOf, SomeLR, TrSomeOf,
+    commutative::{CommutativeVariant, TrCommutative},
+    AnyLR, AnyOf, SomeOf, SomeLR, TrAnyOf, TrSomeOf,
 };
 
-pub trait TrEitherOf {
+pub trait TrEitherOf
+where
+    Self: TrCommutative<Left = Self::Lt, Right = Self::Rt>,
+{
     type Lt;
     type Rt;
 
@@ -167,7 +170,7 @@ impl<L, R> EitherOf<L, R> {
         }
     }
 
-    pub fn into_inversed(self) -> EitherOf<R, L> {
+    pub fn into_commutated(self) -> EitherOf<R, L> {
         match self {
             EitherOf::Left(x) => EitherOf::<R, L>::Right(x),
             EitherOf::Right(x) => EitherOf::<R, L>::Left(x),
@@ -257,13 +260,18 @@ impl<L, R> TryFrom<AnyOf<L, R>> for EitherOf<L, R> {
     }
 }
 
-impl<L, R> TrInverseLR for EitherOf<L, R> {
-    type Lt = L;
-    type Rt = R;
+impl<L, R> TrCommutative for EitherOf<L, R> {
+    type Left = L;
+    type Right = R;
 
     #[inline]
-    fn into_inversed(self) -> impl TrInverseLR<Lt = Self::Rt, Rt = Self::Lt> {
-        EitherOf::into_inversed(self)
+    fn into_commutated(self) -> impl TrCommutative<Left = R, Right = L> {
+        EitherOf::into_commutated(self)
+    }
+
+    #[inline]
+    fn into_variant(self) -> crate::commutative::CommutativeVariant<L, R> {
+        CommutativeVariant::Either(self)
     }
 }
 
@@ -366,3 +374,43 @@ impl<L, R> TrAnyOf for EitherOf<L, R> {
 
 impl<L: Copy, R: Copy> Copy for EitherOf<L, R>
 { }
+
+impl<T, E> TrCommutative for Result<T, E> {
+    type Left = T;
+    type Right = E;
+
+    #[inline]
+    fn into_commutated(self) -> impl TrCommutative<Left = Self::Right, Right = Self::Left> {
+        self.into_either_of().into_commutated()
+    }
+
+    #[inline]
+    fn into_variant(self) -> CommutativeVariant<Self::Left, Self::Right> {
+        self.into_either_of().into_variant()
+    }
+}
+
+impl<T, E> TrEitherOf for Result<T, E> {
+    type Lt = T;
+    type Rt = E;
+
+    fn as_ref<'a>(&'a self) -> impl TrEitherOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    where
+        Self::Lt: 'a,
+        Self::Rt: 'a,
+    {
+        Result::as_ref(self)
+    }
+
+    fn as_mut<'a>(&'a mut self) -> impl TrEitherOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    where
+        Self::Lt: 'a,
+        Self::Rt: 'a,
+    {
+        Result::as_mut(self)
+    }
+
+    fn into_either_of(self) -> EitherOf<Self::Lt, Self::Rt> {
+        self.into()
+    }
+}
