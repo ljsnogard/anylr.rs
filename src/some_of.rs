@@ -1,6 +1,7 @@
 use crate::{
+    any_of::AnyLR,
     commutative::{CommutativeVariant, TrCommutative},
-    AnyLR, AnyOf, BothOf, EitherOf, TrAnyOf,
+    AnyOf, BothOf, EitherOf, TrAnyOf,
 };
 
 pub trait TrSomeOf
@@ -10,17 +11,29 @@ where
     type Lt;
     type Rt;
 
+    type Ref<'f>: TrSomeOf<Lt = &'f Self::Lt, Rt = &'f Self::Rt>
+    where
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    type Mut<'f>: TrSomeOf<Lt = &'f mut Self::Lt, Rt = &'f mut Self::Rt>
+    where
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
     // Required methods
 
-    fn as_ref<'a>(&'a self) -> impl TrSomeOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    fn as_ref<'f>(&'f self) -> Self::Ref<'f>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a;
+        Self::Lt: 'f,
+        Self::Rt: 'f;
 
-    fn as_mut<'a>(&'a mut self) -> impl TrSomeOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    fn as_mut<'f>(&'f mut self) -> Self::Mut<'f>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a;
+        Self::Lt: 'f,
+        Self::Rt: 'f;
 
     fn into_some_of(self) -> SomeOf<Self::Lt, Self::Rt>;
 
@@ -237,9 +250,10 @@ impl<L, R> TryFrom<AnyOf<L, R>> for SomeOf<L, R> {
 impl<L, R> TrCommutative for SomeOf<L, R> {
     type Left = L;
     type Right = R;
+    type Commutated = SomeOf<R, L>;
 
     #[inline]
-    fn into_commutated(self) -> impl TrCommutative<Left = R, Right = L> {
+    fn into_commutated(self) -> Self::Commutated {
         SomeOf::into_commutated(self)
     }
 
@@ -253,20 +267,32 @@ impl<L, R> TrSomeOf for SomeOf<L, R> {
     type Lt = L;
     type Rt = R;
 
-    #[inline]
-    fn as_ref<'a>(&'a self) -> impl TrSomeOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    type Ref<'f> = SomeOf<&'f Self::Lt, &'f Self::Rt>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    type Mut<'f> = SomeOf<&'f mut Self::Lt, &'f mut Self::Rt>
+    where
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    #[inline]
+    fn as_ref<'f>(&'f self) -> Self::Ref<'f>
+    where
+        Self::Lt: 'f,
+        Self::Rt: 'f,
     {
         SomeOf::as_ref(self)
     }
 
     #[inline]
-    fn as_mut<'a>(&'a mut self) -> impl TrSomeOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    fn as_mut<'f>(&'f mut self) -> Self::Mut<'f>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
+        Self::Lt: 'f,
+        Self::Rt: 'f,
     {
         SomeOf::as_mut(self)
     }
@@ -281,20 +307,32 @@ impl<L, R> TrAnyOf for SomeOf<L, R> {
     type Lt = L;
     type Rt = R;
 
-    #[inline]
-    fn as_ref<'a>(&'a self) -> impl TrAnyOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    type Ref<'f> = SomeOf<&'f Self::Lt, &'f Self::Rt>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    type Mut<'f> = SomeOf<&'f mut Self::Lt, &'f mut Self::Rt>
+    where
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    #[inline]
+    fn as_ref<'f>(&'f self) -> Self::Ref<'f>
+    where
+        Self::Lt: 'f,
+        Self::Rt: 'f,
     {
         SomeOf::as_ref(self)
     }
 
     #[inline]
-    fn as_mut<'a>(&'a mut self) -> impl TrAnyOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    fn as_mut<'f>(&'f mut self) -> Self::Mut<'f>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
+        Self::Lt: 'f,
+        Self::Rt: 'f,
     {
         SomeOf::as_mut(self)
     }
@@ -397,70 +435,15 @@ impl<L: Copy, R: Copy> Copy for SomeLR<L, R>
 impl<L, R> TrCommutative for SomeLR<L, R> {
     type Left = L;
     type Right = R;
+    type Commutated = SomeLR<R, L>;
 
     #[inline]
-    fn into_commutated(self) -> impl TrCommutative<Left = R, Right = L> {
+    fn into_commutated(self) -> Self::Commutated {
         SomeLR::into_commutated(self)
     }
 
     #[inline]
     fn into_variant(self) -> CommutativeVariant<L, R> {
         CommutativeVariant::Some(self.into_some_of())
-    }
-}
-
-impl<L, R> TrAnyOf for SomeLR<L, R> {
-    type Lt = L;
-    type Rt = R;
-
-    #[inline]
-    fn as_ref<'a>(&'a self) -> impl TrAnyOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
-    where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
-    {
-        SomeLR::as_ref(self)
-    }
-
-    #[inline]
-    fn as_mut<'a>(&'a mut self) -> impl TrAnyOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
-    where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
-    {
-        SomeLR::as_mut(self)
-    }
-
-    #[inline]
-    fn into_any_of(self) -> AnyOf<Self::Lt, Self::Rt> {
-        SomeLR::into_any_of(self)
-    }
-}
-
-impl<L, R> TrSomeOf for SomeLR<L, R> {
-    type Lt = L;
-    type Rt = R;
-
-    #[inline]
-    fn as_ref<'a>(&'a self) -> impl TrSomeOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
-    where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
-    {
-        SomeLR::as_ref(self)
-    }
-
-    #[inline]
-    fn as_mut<'a>(&'a mut self) -> impl TrSomeOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
-    where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
-    {
-        SomeLR::as_mut(self)
-    }
-
-    #[inline]
-    fn into_some_of(self) -> SomeOf<Self::Lt, Self::Rt> {
-        SomeLR::into_some_of(self)
     }
 }

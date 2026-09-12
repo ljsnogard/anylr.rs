@@ -4,9 +4,12 @@ pub use crate::{AnyOf, BothOf, EitherOf, SomeOf};
 pub trait TrCommutative {
     type Left;
     type Right;
+    type Commutated: TrCommutative<Left = Self::Right, Right = Self::Left>;
 
-    fn into_commutated(self) -> impl TrCommutative<Left = Self::Right, Right = Self::Left>;
+    /// Exchange the place of left and right.
+    fn into_commutated(self) -> Self::Commutated;
 
+    /// Tell who am I.
     fn into_variant(self) -> CommutativeVariant<Self::Left, Self::Right>;
 }
 

@@ -11,17 +11,29 @@ where
     type Lt;
     type Rt;
 
+    type Ref<'f>: TrAnyOf<Lt = &'f Self::Lt, Rt = &'f Self::Rt>
+    where
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    type Mut<'f>: TrAnyOf<Lt = &'f mut Self::Lt, Rt = &'f mut Self::Rt>
+    where
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
     // Required methods
 
-    fn as_ref<'a>(&'a self) -> impl TrAnyOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    fn as_ref<'f>(&'f self) -> Self::Ref<'f>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a;
+        Self::Lt: 'f,
+        Self::Rt: 'f;
 
-    fn as_mut<'a>(&'a mut self) -> impl TrAnyOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    fn as_mut<'f>(&'f mut self) -> Self::Mut<'f>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a;
+        Self::Lt: 'f,
+        Self::Rt: 'f;
 
     fn into_any_of(self) -> AnyOf<Self::Lt, Self::Rt>;
 
@@ -96,12 +108,12 @@ impl<L, R> AnyOf<L, R> {
     }
 
     /// Wraps value of `L` with AnyOf<L, R>.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use anylr::AnyOf;
-    /// 
+    ///
     /// let a = AnyOf::<usize, f64>::new_left(0usize);
     /// assert!(a.contains_left());
     /// assert!(!a.contains_right());
@@ -113,7 +125,7 @@ impl<L, R> AnyOf<L, R> {
     /// Wraps value of `R` with AnyOf<L, R>.
     ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use anylr::AnyOf;
     ///
@@ -128,7 +140,7 @@ impl<L, R> AnyOf<L, R> {
     /// Wraps a pair of values of type `L` and `R` with AnyOf<L, R>.
     ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use anylr::AnyOf;
     ///
@@ -141,9 +153,9 @@ impl<L, R> AnyOf<L, R> {
     }
 
     /// Creates a value of `AnyOf<L, R>` that contains no values.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use anylr::AnyOf;
     ///
@@ -157,9 +169,9 @@ impl<L, R> AnyOf<L, R> {
 
     /// Creates a tuple that the first element is the optional left value and
     /// the second element is the optional right value.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use anylr::AnyOf;
     ///
@@ -213,7 +225,7 @@ impl<L, R> AnyOf<L, R> {
     /// Makes an `AnyOf<L, R>` into `Option<L>` as long as a value of `L` is contained.
     ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use anylr::AnyOf;
     ///
@@ -222,7 +234,7 @@ impl<L, R> AnyOf<L, R> {
     /// let a = AnyOf::new_both(l, r);
     /// assert_eq!(Option::Some(l), a.clone().pick_left());
     /// assert_eq!(Option::Some(r), a.clone().pick_right());
-    /// 
+    ///
     /// let a = AnyOf::<usize, f64>::new_left(l);
     /// assert_eq!(Option::Some(l), a.clone().pick_left());
     /// assert_eq!(Option::None, a.clone().pick_right());
@@ -239,7 +251,7 @@ impl<L, R> AnyOf<L, R> {
     /// Makes an `AnyOf<L, R>` into `Option<R>` as long as a value of `R` is contained.
     ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use anylr::AnyOf;
     ///
@@ -248,7 +260,7 @@ impl<L, R> AnyOf<L, R> {
     /// let a = AnyOf::new_both(l, r);
     /// assert_eq!(Option::Some(r), a.clone().pick_right());
     /// assert_eq!(Option::Some(l), a.clone().pick_left());
-    /// 
+    ///
     /// let a = AnyOf::<usize, f64>::new_right(r);
     /// assert_eq!(Option::Some(r), a.clone().pick_right());
     /// assert_eq!(Option::None, a.clone().pick_left());
@@ -353,9 +365,10 @@ impl<L, R> From<BothOf<Option<L>, Option<R>>> for AnyOf<L, R> {
 impl<L, R> TrCommutative for AnyOf<L, R> {
     type Left = L;
     type Right = R;
+    type Commutated = AnyOf<R, L>;
 
     #[inline]
-    fn into_commutated(self) -> impl TrCommutative<Left = Self::Right, Right = Self::Left> {
+    fn into_commutated(self) -> Self::Commutated {
         AnyOf::into_commutated(self)
     }
 
@@ -369,20 +382,32 @@ impl<L, R> TrAnyOf for AnyOf<L, R> {
     type Lt = L;
     type Rt = R;
 
-    #[inline]
-    fn as_ref<'a>(&'a self) -> impl TrAnyOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    type Ref<'f> = AnyOf<&'f L, &'f R>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    type Mut<'f> = AnyOf<&'f mut L, &'f mut R>
+    where
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    #[inline]
+    fn as_ref<'f>(&'f self) -> Self::Ref<'f>
+    where
+        Self::Lt: 'f,
+        Self::Rt: 'f,
     {
         AnyOf::as_ref(self)
     }
 
     #[inline]
-    fn as_mut<'a>(&'a mut self) -> impl TrAnyOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    fn as_mut<'f>(&'f mut self) -> Self::Mut<'f>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
+        Self::Lt: 'f,
+        Self::Rt: 'f,
     {
         AnyOf::as_mut(self)
     }
@@ -449,42 +474,15 @@ impl<L: Copy, R: Copy> Copy for AnyLR<L, R>
 impl<L, R> TrCommutative for AnyLR<L, R> {
     type Left = L;
     type Right = R;
+    type Commutated = AnyLR<R, L>;
 
     #[inline]
-    fn into_commutated(self) -> impl TrCommutative<Left = R, Right = L> {
+    fn into_commutated(self) -> Self::Commutated {
         AnyLR::into_commutated(self)
     }
 
     #[inline]
     fn into_variant(self) -> CommutativeVariant<L, R> {
         AnyLR::into_variant(self)
-    }
-}
-
-impl<L, R> TrAnyOf for AnyLR<L, R> {
-    type Lt = L;
-    type Rt = R;
-
-    #[inline]
-    fn as_ref<'a>(&'a self) -> impl TrAnyOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
-    where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
-    {
-        AnyLR::as_ref(self)
-    }
-
-    #[inline]
-    fn as_mut<'a>(&'a mut self) -> impl TrAnyOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
-    where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
-    {
-        AnyLR::as_mut(self)
-    }
-
-    #[inline]
-    fn into_any_of(self) -> AnyOf<Self::Lt, Self::Rt> {
-        AnyLR::into_any_of(self)
     }
 }

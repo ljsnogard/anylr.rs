@@ -7,7 +7,7 @@ pub mod either_of;
 pub mod some_of;
 
 pub use commutative::TrCommutative;
-pub use any_of::{AnyOf, AnyLR, TrAnyOf};
+pub use any_of::{AnyOf, TrAnyOf};
 pub use both_of::BothOf;
 pub use either_of::{EitherOf, TrEitherOf};
-pub use some_of::{SomeOf, SomeLR, TrSomeOf};
+pub use some_of::{SomeOf, TrSomeOf};

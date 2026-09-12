@@ -1,6 +1,8 @@
 use crate::{
+    any_of::AnyLR,
     commutative::{CommutativeVariant, TrCommutative},
-    AnyLR, AnyOf, SomeOf, SomeLR, TrAnyOf, TrSomeOf,
+    some_of::SomeLR,
+    AnyOf, SomeOf, TrAnyOf, TrSomeOf,
 };
 
 pub trait TrEitherOf
@@ -10,17 +12,29 @@ where
     type Lt;
     type Rt;
 
+    type Ref<'f>: TrEitherOf<Lt = &'f Self::Lt, Rt = &'f Self::Rt>
+    where
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    type Mut<'f>: TrEitherOf<Lt = &'f mut Self::Lt, Rt = &'f mut Self::Rt>
+    where
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
     // Required methods
 
-    fn as_ref<'a>(&'a self) -> impl TrEitherOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    fn as_ref<'f>(&'f self) -> Self::Ref<'f>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a;
+        Self::Lt: 'f,
+        Self::Rt: 'f;
 
-    fn as_mut<'a>(&'a mut self) -> impl TrEitherOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    fn as_mut<'f>(&'f mut self) -> Self::Mut<'f>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a;
+        Self::Lt: 'f,
+        Self::Rt: 'f;
 
     fn into_either_of(self) -> EitherOf<Self::Lt, Self::Rt>;
 
@@ -263,9 +277,10 @@ impl<L, R> TryFrom<AnyOf<L, R>> for EitherOf<L, R> {
 impl<L, R> TrCommutative for EitherOf<L, R> {
     type Left = L;
     type Right = R;
+    type Commutated = EitherOf<R, L>;
 
     #[inline]
-    fn into_commutated(self) -> impl TrCommutative<Left = R, Right = L> {
+    fn into_commutated(self) -> Self::Commutated {
         EitherOf::into_commutated(self)
     }
 
@@ -279,20 +294,32 @@ impl<L, R> TrEitherOf for EitherOf<L, R> {
     type Lt = L;
     type Rt = R;
 
-    #[inline]
-    fn as_ref<'a>(&'a self) -> impl TrEitherOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    type Ref<'f> = EitherOf<&'f Self::Lt, &'f Self::Rt>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    type Mut<'f> = EitherOf<&'f mut Self::Lt, &'f mut Self::Rt>
+    where
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    #[inline]
+    fn as_ref<'f>(&'f self) -> Self::Ref<'f>
+    where
+        Self::Lt: 'f,
+        Self::Rt: 'f,
     {
         EitherOf::as_ref(self)
     }
 
     #[inline]
-    fn as_mut<'a>(&'a mut self) -> impl TrEitherOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    fn as_mut<'f>(&'f mut self) -> Self::Mut<'f>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
+        Self::Lt: 'f,
+        Self::Rt: 'f,
     {
         EitherOf::as_mut(self)
     }
@@ -307,20 +334,32 @@ impl<L, R> TrSomeOf for EitherOf<L, R> {
     type Lt = L;
     type Rt = R;
 
-    #[inline]
-    fn as_ref<'a>(&'a self) -> impl TrSomeOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    type Ref<'f> = EitherOf<&'f Self::Lt, &'f Self::Rt>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    type Mut<'f> = EitherOf<&'f mut Self::Lt, &'f mut Self::Rt>
+    where
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    #[inline]
+    fn as_ref<'f>(&'f self) -> Self::Ref<'f>
+    where
+        Self::Lt: 'f,
+        Self::Rt: 'f,
     {
         EitherOf::as_ref(self)
     }
 
     #[inline]
-    fn as_mut<'a>(&'a mut self) -> impl TrSomeOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    fn as_mut<'f>(&'f mut self) -> Self::Mut<'f>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
+        Self::Lt: 'f,
+        Self::Rt: 'f,
     {
         EitherOf::as_mut(self)
     }
@@ -335,20 +374,32 @@ impl<L, R> TrAnyOf for EitherOf<L, R> {
     type Lt = L;
     type Rt = R;
 
-    #[inline]
-    fn as_ref<'a>(&'a self) -> impl TrAnyOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    type Ref<'f> = EitherOf<&'f Self::Lt, &'f Self::Rt>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    type Mut<'f> = EitherOf<&'f mut Self::Lt, &'f mut Self::Rt>
+    where
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    #[inline]
+    fn as_ref<'f>(&'f self) -> Self::Ref<'f>
+    where
+        Self::Lt: 'f,
+        Self::Rt: 'f,
     {
         EitherOf::as_ref(self)
     }
 
     #[inline]
-    fn as_mut<'a>(&'a mut self) -> impl TrAnyOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    fn as_mut<'f>(&'f mut self) -> Self::Mut<'f>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
+        Self::Lt: 'f,
+        Self::Rt: 'f,
     {
         EitherOf::as_mut(self)
     }
@@ -378,9 +429,10 @@ impl<L: Copy, R: Copy> Copy for EitherOf<L, R>
 impl<T, E> TrCommutative for Result<T, E> {
     type Left = T;
     type Right = E;
+    type Commutated = EitherOf<E, T>;
 
     #[inline]
-    fn into_commutated(self) -> impl TrCommutative<Left = Self::Right, Right = Self::Left> {
+    fn into_commutated(self) -> Self::Commutated {
         self.into_either_of().into_commutated()
     }
 
@@ -394,18 +446,30 @@ impl<T, E> TrEitherOf for Result<T, E> {
     type Lt = T;
     type Rt = E;
 
-    fn as_ref<'a>(&'a self) -> impl TrEitherOf<Lt = &'a Self::Lt, Rt = &'a Self::Rt>
+    type Ref<'f> = Result<&'f Self::Lt, &'f Self::Rt>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    type Mut<'f> = Result<&'f mut Self::Lt, &'f mut Self::Rt>
+    where
+        Self: 'f,
+        Self::Lt: 'f,
+        Self::Rt: 'f;
+
+    fn as_ref<'f>(&'f self) -> Self::Ref<'f>
+    where
+        Self::Lt: 'f,
+        Self::Rt: 'f,
     {
         Result::as_ref(self)
     }
 
-    fn as_mut<'a>(&'a mut self) -> impl TrEitherOf<Lt = &'a mut Self::Lt, Rt = &'a mut Self::Rt>
+    fn as_mut<'f>(&'f mut self) -> Self::Mut<'f>
     where
-        Self::Lt: 'a,
-        Self::Rt: 'a,
+        Self::Lt: 'f,
+        Self::Rt: 'f,
     {
         Result::as_mut(self)
     }
